@@ -86,7 +86,7 @@ printf 'setlayout\tmonocle\n' > "$dir/cmd"
 sleep 1
 kill "$sock_pid" 2>/dev/null
 
-for kind in version mon focus tag layout sync; do
+for kind in version mon focus tags layout sync; do
 	if grep -q "^$kind	" "$tmp/kipp.out"; then
 		ok "kipp-$kind"
 	else
@@ -177,7 +177,7 @@ kill "$sock_pid" 2>/dev/null
 
 # What hedl said has to come out the other side. If the adapter ever needs a
 # rule, the two formats have drifted and this is where it shows.
-for kind in tag focus layout; do
+for kind in tags focus layout; do
 	if grep -q "^$kind	" "$tmp/shell.out"; then
 		ok "shell-$kind"
 	else

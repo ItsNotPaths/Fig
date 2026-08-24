@@ -103,7 +103,7 @@ function Store:each(kind)
 	end
 end
 
--- One fact by its subject: facts:get("tag", "eDP-1", "2")
+-- One fact by its subject: facts:get("tags", "eDP-1")
 function Store:get(kind, ...)
 	return self.facts[key_of(kind, {...})]
 end
