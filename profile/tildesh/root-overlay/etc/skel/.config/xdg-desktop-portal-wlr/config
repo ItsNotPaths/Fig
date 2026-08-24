@@ -1,0 +1,11 @@
+# Which window or monitor a screencast gets.
+#
+# `simple` means xdpw runs chooser_cmd and reads one line back: `Monitor: NAME`
+# or `Window: ID`. Ours answers from what the record popup already picked, so
+# choosing a window does not then ask a second time.
+#
+# Left on the default and xdpw picks slurp, which can only name a monitor.
+
+[screencast]
+chooser_type=simple
+chooser_cmd=capture-chooser

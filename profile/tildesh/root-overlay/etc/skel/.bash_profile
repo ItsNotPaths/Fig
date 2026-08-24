@@ -8,6 +8,13 @@ export EDITOR=micro VISUAL=micro
 # colourscheme the theme writes is hex.
 export MICRO_TRUECOLOR=1
 
+# What the desktop calls itself. xdg-desktop-portal picks a backend by this
+# name and nothing else: xdg-desktop-portal-wlr's .portal file lists `wlroots`
+# in its UseIn, so unset means the portal chooses no backend and a screencast
+# request is answered by nobody.
+export XDG_CURRENT_DESKTOP=wlroots
+export XDG_SESSION_TYPE=wayland
+
 # tty1 is the session. Anything else is a plain shell.
 #
 # dbus-run-session, not a user service manager: runit has none, and every

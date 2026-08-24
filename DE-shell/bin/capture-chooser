@@ -1,0 +1,21 @@
+#!/bin/bash
+# What xdg-desktop-portal-wlr asks when a client wants to screencast.
+#
+# The protocol is one line on stdout: `Monitor: NAME`, or `Window: ID` where
+# the id is the ext-foreign-toplevel-list-v1 one hedl publishes as its `cap`
+# fact. Nothing on stdout means the user declined.
+#
+# The record popup has usually chosen already, so this answers with what it
+# left and never puts a second picker on the screen. Anything else asking --
+# a browser sharing a tab -- gets slurp, which is xdpw's own default.
+
+set -u
+
+target="${XDG_RUNTIME_DIR:-/tmp}/tildesh/capture-target"
+
+if [[ -s $target ]]; then
+	cat "$target"
+	exit 0
+fi
+
+exec slurp -f 'Monitor: %o' -or

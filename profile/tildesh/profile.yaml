@@ -96,13 +96,27 @@ rootfs:
     # D-Bus activated. Without it PipeWire cannot raise its own priority and
     # says so once for every thread it starts.
     - rtkit
-    - dunst
     # Night light. hyprsunset is Hyprland's; wlsunset drives
     # wlr-gamma-control-unstable-v1, which hedl creates.
     - wlsunset
     - grim
     - slurp
     - wl-clipboard
+    # The rest of what the bar's centre group runs. gpu-screen-recorder takes
+    # its capture target on the command line, including a portal one, which is
+    # what lets the record popup pick a window. wf-recorder speaks only
+    # wlr-screencopy and can never capture one.
+    - gpu-screen-recorder
+    # Opens a screenshot for marking up. Nothing runs it on its own: the
+    # notification carries the command and the panel runs it on Return.
+    - satty
+    # notify-send, the client half. The daemon half is kippsrv, which owns
+    # org.freedesktop.Notifications: two programs cannot, so there is no dunst.
+    - libnotify
+    # Plays back what was just recorded, and everything else. Nothing here
+    # calls it; it is on the image because a desktop without a video player is
+    # not finished.
+    - mpv
     - socat
     - jq
     # pactl, which the audio adapter runs. pipewire-pulse replaces the daemon
