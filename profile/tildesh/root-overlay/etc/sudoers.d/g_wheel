@@ -1,0 +1,7 @@
+# The live user is in wheel, and /etc/sudoers ships that line commented out, so
+# without this nobody on the image can become root at all.
+#
+# This is Artix's own file, byte for byte. It is in /etc because sudo reads
+# /etc/sudoers.d and nowhere else, which is the exception the README names:
+# a machine fact that has to exist before anyone logs in.
+%wheel  ALL=(ALL) NOPASSWD: ALL
