@@ -11,9 +11,10 @@
 -- nothing per second and knows nothing about the window manager. The clock is
 -- the timer, and the timer is the only reason it redraws when nothing moved.
 --
--- A tag that empties is not retracted: the last state anyone heard for it
--- stays true in the store. So live is decided here, from occupancy, and focus
--- is the most recent tag that said so. That is a consumer's job.
+-- The tags arrive as one fact for the whole monitor, `used=` and `sel=`, so
+-- that a switch between two empty tags is a line that changed. One fact for
+-- each tag could only say "this one is no longer selected" by leaving it out,
+-- and an omission is not something the store can pass on.
 --
 -- It holds the keyboard only while a mode holds. hedl binds send the word:
 --
@@ -65,8 +66,7 @@ local ON   = theme.style("background", "accent")
 
 local bar = {
 	facts = kipp.store(),
-	focus = 1,          -- the tag, not the monitor
-	mon   = nil,
+	mon   = nil,        -- the monitor, from the focus fact
 	clock = now(),
 	mode  = nil,        -- nil, "centre" or "right"
 	sel   = 1,
@@ -143,42 +143,38 @@ function bar:onMessage(line)
 		return
 	end
 
-	local kind = self.facts:feed(line)
-	if kind == "focus" then
+	if self.facts:feed(line) == "focus" then
 		local fact = self.facts:get("focus")
 		self.mon = fact and fact.subj[1]
-	elseif kind == "tag" then
-		-- Whichever said focused last is the one being looked at. Arrival
-		-- order is the only thing that settles it, so it is read here and
-		-- not from the store.
-		local _, subj, attr = kipp.parse(line)
-		if attr and attr.state and attr.state:find("focused") then
-			self.focus = tonumber(subj[2]) or self.focus
-			self.mon = subj[1]
-		end
 	end
 end
 
 -- ------------------------------------------------------------- drawing
 
--- Occupied, plus the focused one, so a tag just switched to still has
--- something under the highlight.
-function bar:live()
+local function numbers(list)
 	local out = {}
-	for fact in self.facts:each("tag") do
-		local n = tonumber(fact.subj[2])
-		if n and (not self.mon or fact.subj[1] == self.mon)
-		   and fact.attr.state and fact.attr.state:find("occupied") then
-			out[n] = true
+	for n in (list or ""):gmatch("%d+") do out[tonumber(n)] = true end
+	return out
+end
+
+-- What is in use, plus what is being looked at, so a tag just switched to
+-- still has something under the highlight.
+function bar:live()
+	local fact = self.mon and self.facts:get("tags", self.mon)
+	if not fact then
+		for f in self.facts:each("tags") do
+			fact = f
+			break
 		end
 	end
-	out[self.focus] = true
+	if not fact then return {}, {} end
 
+	local used, sel = numbers(fact.attr.used), numbers(fact.attr.sel)
 	local ids = {}
 	for n = 1, TAGS do
-		if out[n] then ids[#ids + 1] = n end
+		if used[n] or sel[n] then ids[#ids + 1] = n end
 	end
-	return ids
+	return ids, sel
 end
 
 -- The fill glyph from one column to another, touching neither end. A glyph
@@ -213,9 +209,10 @@ function bar:onDraw(g)
 	g.fill(0, 0, g.cols, g.rows, BASE)
 
 	local x = 1
-	for _, n in ipairs(self:live()) do
+	local ids, sel = self:live()
+	for _, n in ipairs(ids) do
 		local text = " " .. n .. " "
-		g.text(x, 0, text, n == self.focus and ON or DIM)
+		g.text(x, 0, text, sel[n] and ON or DIM)
 		x = x + Grid.width(text)
 	end
 
