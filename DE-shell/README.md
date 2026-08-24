@@ -4,7 +4,7 @@ The visible desktop. Every piece here is a wweft surface or something one of
 them runs.
 
 ```
-config.lua        what you set: the font and its size
+config.lua        what you set: the typeface, its size, and the first theme
 surfaces/         one file for each surface. Each one draws
 lib/              code. Nothing here draws and nothing here is a setting
   settings.lua      reads config.lua
@@ -22,7 +22,8 @@ Installed by the `tildesh-shell` package:
 | `config.lua`, `surfaces/*.lua` | `/etc/skel/.config/tildesh-shell/` |
 | `lib/` | `/etc/skel/.config/tildesh-shell/lib/` |
 | `themes/` | `/usr/share/tildesh/themes/` |
-| `vendor/setters/`, `vendor/helpers/` | `/usr/share/tildesh/theme-setters/` |
+| `vendor/setters/` | `/usr/share/tildesh/theme-setters/` |
+| `vendor/helpers/` | `/usr/share/tildesh/theme-setters/helpers/` |
 
 Not `~/.config/wweft/`. That is wweft's own directory, and these files are no
 more wweft's configuration than a script is bash's. wweft is a renderer that
@@ -52,15 +53,18 @@ The picker does the work, in this order.
    reading a colour sees the old theme or the new one and never half of each.
    A theme's own files are taken as they are; what it leaves out is rendered
    from a template.
-2. Poke what we ship: foot by escape sequence, btop by signal, GTK by
-   gsettings.
-3. `wweft --send theme` to every surface that is up.
-4. `RELOAD` on the kippsrv socket, which is how hedl hears about it, because
+2. Point the fixed paths at it. `~/.config/hedl/colors.lua` becomes a link
+   into the new theme, and micro's `tildesh.micro` is copied over. Both are
+   read by name, so the name stays and the file behind it changes.
+3. Poke what we ship: foot by escape sequence on its own tty, btop by signal,
+   GTK by gsettings, and swaybg for a theme that carries a picture.
+4. `wweft --send theme` to every surface that is up.
+5. `RELOAD` on the kippsrv socket, which is how hedl hears about it, because
    kippsrv holds its command channel.
-5. Run `vendor/`'s setters for everything else.
+6. Run `vendor/`'s setters for everything else.
 
 The signal carries the theme's name and nothing else, so a surface reacting to
-it and a surface starting cold both end up in `lib/theme.lua` the same way.
+it and a surface starting cold both end up in `lib/palette.lua` the same way.
 That is what stops a second code path for "I started late".
 
 ## Compatibility

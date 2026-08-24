@@ -19,19 +19,31 @@ profile/
   tildesh/
     profile.yaml    the desktop, the services, the live user
     root-overlay/   files copied into the image
+DE-shell/
+  config.lua        what the shell is set to
+  surfaces/         the bar and the theme picker, drawn by wweft
+  lib/              the theme engine and the kipp fact store
+  themes/           the palettes
+  vendor/           omarchy's theme setters, and the NOTICE for them
 packaging/
   build-packages.sh build our packages, index them into repo/
   kippsrv/PKGBUILD  wraps a binary this machine built
   wweft/PKGBUILD    the same
   hedl-wm/PKGBUILD  compiles hedl in the container
+  tildesh-shell/    DE-shell, split between /etc/skel and /usr/share
+  tildesh-defaults/ plain files, kept beside their PKGBUILD
+  ttf-iosevkaterm-nerd-mono/
+                    four faces out of vendor/fonts
 scripts/
   build-host.sh     build the container image
   build-iso.sh      build the ISO into dist/
-download-deps.sh    fetch vendor/. Reference trees only, nothing that ships
+download-deps.sh    fetch vendor/: the four font faces that ship, and
+                    Artix's iso-profiles to diff our own against
 ```
 
-`docs/`, `vendor/`, `repo/` and `dist/` are gitignored. README.md is the only
-document that ships.
+`docs/`, `vendor/`, `repo/`, `dist/` and the `scripts/vm*` helpers are
+gitignored. The only documents in the tree are this file and
+`DE-shell/README.md`. Neither is installed.
 
 ## Where our files live
 
@@ -89,9 +101,9 @@ The image lands in `dist/tildesh/`.
 
 ## Run it
 
-The image is a UEFI live ISO. Boot it in any virtual machine that has EFI
-firmware, a GPU device and 4G of memory. hedl needs a GPU: a virtio-vga-gl
-card is the fast path, and a plain VGA card works on llvmpipe.
+The image is a UEFI live ISO. Boot it in any virtual machine with EFI firmware
+and a GPU device. hedl wants a GPU: virtio-vga-gl is the fast path, and a plain
+VGA card works on llvmpipe, because the image carries vulkan-swrast.
 
 The live user is `tildesh`, the password is `tildesh`, and tty1 logs itself in
 and starts hedl.
@@ -118,38 +130,47 @@ It is also the answer to whether wweft can read kippsrv without new C:
 
 ## The self test
 
-`tildesh-selftest` is on the image, at `/usr/local/bin`. It starts sway on the
+`tildesh-selftest` is on the image, at `/usr/local/bin`. It runs hedl on the
 headless wlroots backend, so it needs no GPU, no seat and no monitor. Run it
-over ssh, in the VM, or from tty2 while the desktop is up.
+over ssh, in a VM, or from tty2 while the desktop is up. Its exit status is the
+number of failed checks.
 
 ```
-ok	sway-headless
-ok	seed-get_outputs
-ok	seed-get_workspaces
-ok	stream-line-delimited
-ok	stream-workspace-focus
-skip	kippsrv-sway	kippsrv not installed
+ok	hedl-headless
+ok	hedl-cmd-fifo
+ok	kipp-version
+ok	kipp-mon
+ok	kipp-focus
+ok	kipp-tags
+ok	kipp-layout
+ok	kipp-sync
+ok	kipp-version-first
+ok	kipp-sync-after-state
+ok	cmd-drives-state
+ok	kipp-focus-subject
+skip	kippsrv-hedl	kippsrv not installed
 ```
 
-What it is for: kippsrv reads a window manager through one Lua adapter, and
-the sway adapter assumes sway's event stream is one JSON object a line.
-`stream-line-delimited` is that assumption, checked. If it ever fails, the
-adapter needs sway's binary IPC instead, which costs an outbound request path
-kippsrv does not have yet.
+What it is for is the seam. hedl publishes kipp on a socket and takes commands
+on a FIFO, so `cmd-drives-state` writes `setlayout` to the FIFO and looks for
+the answer on the socket. `kipp-version-first` and `kipp-sync-after-state` are
+the session order the spec asks for: a consumer that acts before `sync` is
+acting on half a picture. `kipp-focus-subject` checks that a focus names a
+monitor and not a tag, which is the mistake that makes every consumer draw
+twice.
 
-The same file runs in a container, which is the fast loop:
+Three more checks put the same stream through kippsrv and look for it on the
+other side. They need kippsrv and its hedl adapter installed; without them the
+run prints `skip kippsrv-hedl` and stops, so the file is useful on an image
+built before the shell is.
+
+The test needs `hedl` and `socat` on PATH and nothing else, which is the fast
+loop: build hedl in its own tree and point at it.
 
 ```sh
-docker run --rm --cap-add=SYS_NICE \
-    -v "$PWD/profile/tildesh/root-overlay/usr/local/bin/tildesh-selftest:/usr/local/bin/tildesh-selftest:ro" \
-    artixlinux/artixlinux:base-devel sh -c '
-        pacman -Sy --noconfirm --needed sway jq socat ttf-dejavu >/dev/null
-        mkdir -p /run/user/0 && chmod 700 /run/user/0
-        XDG_RUNTIME_DIR=/run/user/0 tildesh-selftest'
+PATH=../hedl-wm:$PATH \
+    profile/tildesh/root-overlay/usr/local/bin/tildesh-selftest
 ```
-
-`--cap-add=SYS_NICE` is only for the container. Artix ships sway with
-`cap_sys_nice`, and exec fails without it.
 
 ## What Artix decided for us
 
@@ -160,8 +181,10 @@ provides, and polkit and the portals want the logind D-Bus API anyway.
 
 **There is no user service manager.** runit has none, `turnstile` is packaged
 for dinit and openrc but not for runit, and there is no `pipewire-runit`. So
-the session starts its own daemons: `.bash_profile` execs `dbus-run-session
-sway`, and the sway config execs pipewire, wireplumber and dunst.
+the session starts its own daemons: `.bash_profile` runs `dbus-run-session
+hedl`, and hedl's `start` hook spawns pipewire, pipewire-pulse, wireplumber,
+dunst, swayidle, kippsrv and the bar. There is no `exec` on the hedl line, so a
+compositor that dies leaves a shell on tty1 with its log beside it.
 
 **Some services enable themselves.** `dbus-runit`, `elogind-runit`,
 `artix-live-runit` and `runit` all ship their own symlink in

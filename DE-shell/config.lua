@@ -2,7 +2,7 @@
 --
 -- wweft draws and hedl arranges windows. Neither has an opinion about how big
 -- the text is, so it is here, and every surface reads it through
--- lib/config.lua rather than choosing for itself.
+-- lib/settings.lua rather than choosing for itself.
 --
 -- Edit and press SUPER+SHIFT+R.
 return {

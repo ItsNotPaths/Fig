@@ -67,8 +67,9 @@ rootfs:
     - ttf-iosevkaterm-nerd-mono
     - ttf-dejavu
     - ttf-nerd-fonts-symbols
-    # A tray icon is looked up by name in an icon theme. With none installed
-    # swaybar logs "no icon themes loaded" and draws nothing.
+    # A tray icon is a name, looked up in an icon theme. With none installed
+    # there is nothing behind the name. Adwaita is also what the GTK setter
+    # falls back to when a theme names no icon theme of its own.
     - hicolor-icon-theme
     - adwaita-icon-theme
 
