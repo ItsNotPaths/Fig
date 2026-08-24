@@ -10,69 +10,24 @@ and a self test that checks the image on the image.
 The image is built inside a container, so the only thing a build host needs is
 docker.
 
-## Layout
-
-```
-docker/Dockerfile   the Artix build host
-profile/
-  common/           our package base. Replaces Artix's, which is Xorg-shaped
-  tildesh/
-    profile.yaml    the desktop, the services, the live user
-    root-overlay/   files copied into the image
-DE-shell/
-  config.lua        what the shell is set to
-  surfaces/         the bar and the theme picker, drawn by wweft
-  bin/              what a surface runs, on PATH
-  lib/              the theme engine and the kipp fact store
-  themes/           the palettes, fetched
-  vendor/           the NOTICE for omarchy's setters, and a drift check
-packaging/
-  build-packages.sh build our packages, index them into repo/
-  kippsrv/PKGBUILD  wraps a binary this machine built
-  wweft/PKGBUILD    the same
-  hedl-wm/PKGBUILD  compiles hedl in the container
-  tildesh-shell/    DE-shell, split between /etc/skel and /usr/share
-  tildesh-defaults/ plain files, kept beside their PKGBUILD
-  ttf-iosevkaterm-nerd-mono/
-                    four faces out of vendor/fonts
-scripts/
-  build-host.sh     build the container image
-  build-iso.sh      build the ISO into dist/
-download-deps.sh    fetch what is not ours: the four font faces that ship,
-                    Artix's iso-profiles to diff our own against, and
-                    omarchy's palettes, templates and setters
-```
-
-`docs/`, `vendor/`, `repo/`, `dist/` and the `scripts/vm*` helpers are
-gitignored, and so is everything `download-deps.sh` writes into `DE-shell/`.
-The palettes, the templates and the setters are omarchy's, pinned to a tag and
-fetched rather than committed, so this tree holds no copy of somebody else's
-590 KB. The only documents in the tree are this file and
-`DE-shell/README.md`. Neither is installed.
-
 ## Where our files live
 
 One rule: **nothing of ours goes in `/etc`.**
-
-`/etc` is for machine facts that must exist before anyone logs in — `fstab`,
-`passwd`, `resolv.conf`. A window manager's key table and a shell's source list
-are not that, and putting them there splits one idea across two directories for
-no reason but habit.
 
 | Kind | Where | Example |
 | --- | --- | --- |
 | authored | `~/.config/<name>/` | `~/.config/hedl/hedl.lua` |
 | runtime state | `$XDG_RUNTIME_DIR/<name>/` | `/run/user/1000/hedl/kipp` |
-| durable state | `~/.local/state/<name>/` | |
+| durable state | `~/.local/state/<name>/` | `~/.local/state/tildesh/theme/` |
 | installed | `/usr/share/<name>/` | `/usr/share/kippsrv/lua/` |
+| on PATH | `/usr/bin/` | `/usr/bin/bar-actions` |
 
-The names come from the XDG base directory spec, which is the same split FHS
-makes with `/etc`, `/var/lib`, `/var/cache` and `/usr/share` — with better
-names, and without duplicating every category once per user and once per
-machine. On a single-user system that duplication buys nothing.
+`/etc` is for machine facts that must exist before anyone logs in, like `fstab`
+and `passwd`. A window manager's key table is not one, and `/etc/skel` is the
+exception that proves it: a surface has to be the user's copy to be editable.
 
-`kippsrv.lua` used to live in `/etc/tildesh/`. It is the reason this rule is
-written down.
+`kippsrv.lua` used to live in `/etc/tildesh/`. It is the reason this is written
+down.
 
 ## Build
 
@@ -81,6 +36,12 @@ written down.
 ./packaging/build-packages.sh
 ./scripts/build-iso.sh
 ```
+
+`download-deps.sh` fetches what is not ours: four font faces, Artix's
+iso-profiles to diff our own against, and omarchy's palettes, templates and
+setters at a pinned tag. None of it is committed, so this tree holds no copy of
+somebody else's 590 KB. Everything it writes is gitignored, as are `docs/`,
+`repo/`, `dist/` and the `scripts/vm*` helpers.
 
 `build-packages.sh` builds from the sibling repos beside this one and indexes
 the result into `repo/`. Override the locations with `KIPPSRV_DIR`,
@@ -133,7 +94,7 @@ It is also the answer to whether wweft can read kippsrv without new C:
 `Surface.listen` on a path connects to that socket and hands each line to
 `onMessage`. That was already there for compositor event sockets.
 
-## The self test
+## Self test
 
 `tildesh-selftest` is on the image, at `/usr/local/bin`. It runs hedl on the
 headless wlroots backend, so it needs no GPU, no seat and no monitor. Run it
@@ -176,41 +137,3 @@ loop: build hedl in its own tree and point at it.
 PATH=../hedl-wm:$PATH \
     profile/tildesh/root-overlay/usr/local/bin/tildesh-selftest
 ```
-
-## What Artix decided for us
-
-**The seat is elogind, not seatd.** `elogind-runit` and `seatd-runit` are
-marked as conflicting, `base` depends on an `init-logind` that only elogind
-provides, and polkit and the portals want the logind D-Bus API anyway.
-`libseat` inside wlroots finds logind on its own.
-
-**There is no user service manager.** runit has none, `turnstile` is packaged
-for dinit and openrc but not for runit, and there is no `pipewire-runit`. So
-the session starts its own daemons: `.bash_profile` runs `dbus-run-session
-hedl`, and hedl's `start` hook spawns pipewire, pipewire-pulse, wireplumber,
-swayidle, kippsrv and the bar. There is no `exec` on the hedl line, so a
-compositor that dies leaves a shell on tty1 with its log beside it.
-
-**Some services enable themselves.** `dbus-runit`, `elogind-runit`,
-`artix-live-runit` and `runit` all ship their own symlink in
-`runsvdir/default`. Naming one of those in `profile.yaml` makes buildiso abort,
-because its own `ln -s` fails on a link that already exists.
-
-**elogind can be started twice, and then no one can log in.** runit supervises
-it as `logind`, and D-Bus activates it for any client that asks for
-`org.freedesktop.login1`. Whichever wins the race owns the name; the loser
-prints "elogind is already running" and exits. When D-Bus wins, runsv restarts
-its copy once a second forever and a login blocks in `pam_elogind`. Artix
-normally wins the race and never sees it. The overlay replaces the D-Bus
-activation file so that it starts the supervised service instead of a second
-daemon.
-
-**buildiso wants two packages nobody asked for.** It copies
-`boot/memtest86+/memtest.bin` and `usr/share/grub/themes/artix` out of the
-build roots with no test, so `memtest86+` and `artix-grub-theme` are in the
-list to stop it dying.
-
-The build host also carries a one line patch to artools 0.39.1. Its
-`configure_calamares()` ends on a directory test, so it returns 1 for any
-profile that ships no Calamares, and `set -e` kills a finished rootfs. See
-`docker/Dockerfile`.
