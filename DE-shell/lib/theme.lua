@@ -19,6 +19,28 @@ function M.argb(hex, alpha)
 	return ((alpha or 0xff) << 24) | rgb
 end
 
+-- A style is a role, not a colour: "foreground on background" stays the same
+-- idea when the palette under it changes. So a surface asks once, keeps the
+-- id, and a theme change rewrites the slot rather than taking a new one. The
+-- cells already drawn in that id repaint themselves.
+local roles = {}
+
+function M.style(fg, bg, alpha)
+	local c = M.palette or M.load()
+	local id = Style and Style.define(M.argb(c[fg] or fg), M.argb(c[bg] or bg, alpha)) or 0
+	roles[id] = {fg, bg, alpha}
+	return id
+end
+
+local function restyle()
+	if not Style then return end
+	for id, role in pairs(roles) do
+		local fg, bg, alpha = role[1], role[2], role[3]
+		Style.define(M.argb(M.palette[fg] or fg),
+		             M.argb(M.palette[bg] or bg, alpha), id)
+	end
+end
+
 function M.load()
 	local chunk = loadfile(PATH)
 	local ok, t = pcall(chunk or function() return nil end)
@@ -31,6 +53,7 @@ function M.load()
 
 	t.argb = M.argb
 	M.palette = t
+	restyle()
 	return t
 end
 

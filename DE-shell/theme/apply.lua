@@ -12,18 +12,20 @@ local palette = require("theme.palette")
 local render  = require("theme.render")
 local setters = require("theme.setters")
 
-local HOME  = os.getenv("HOME")
-local STATE = HOME .. "/.local/state/tildesh"
+-- Every path is a field and none is a local, so a caller that moves `home`
+-- moves all of them. A captured local looks the same and writes to the real
+-- one, which is a thing that has happened twice.
+local HOME = os.getenv("HOME") or "/root"
 
-local M = {
-	state     = STATE,
-	current   = STATE .. "/theme",
-	dirs      = {HOME .. "/.config/tildesh/themes", "/usr/share/tildesh/themes"},
-	templates = HOME .. "/.config/wweft/theme/templates",
-	setters   = "/usr/share/tildesh/theme-setters",
-	helpers   = "/usr/share/tildesh/theme-setters/helpers",
-	compat    = HOME .. "/.local/state/omarchy/current",
-}
+local M = {home = HOME}
+
+M.state     = HOME .. "/.local/state/tildesh"
+M.current   = M.state .. "/theme"
+M.dirs      = {HOME .. "/.config/tildesh/themes", "/usr/share/tildesh/themes"}
+M.templates = HOME .. "/.config/wweft/theme/templates"
+M.setters   = "/usr/share/tildesh/theme-setters"
+M.helpers   = M.setters .. "/helpers"
+M.compat    = HOME .. "/.local/state/omarchy/current"
 
 local function sh(cmd)
 	return os.execute(cmd) and true or false
@@ -130,8 +132,9 @@ function M.apply(name)
 
 	-- hedl reads its four colours through a fixed path, so the link is made
 	-- once and the RELOAD below is all a theme change costs it.
-	sh("mkdir -p " .. HOME .. "/.config/hedl")
-	sh("ln -sfn " .. M.current .. "/hedl-colors.lua " .. HOME .. "/.config/hedl/colors.lua")
+	sh("mkdir -p " .. M.home .. "/.config/hedl")
+	sh("ln -sfn " .. M.current .. "/hedl-colors.lua " ..
+	   M.home .. "/.config/hedl/colors.lua")
 
 	M.poke(name, colors)
 	return colors
