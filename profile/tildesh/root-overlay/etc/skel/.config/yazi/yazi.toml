@@ -1,0 +1,3 @@
+# A file manager that hides files makes you leave it to find one.
+[mgr]
+show_hidden = true

@@ -1,5 +1,9 @@
 [ -f ~/.bashrc ] && . ~/.bashrc
 
+# The editor the image ships. yazi, git and anything else that opens a file
+# asks the environment rather than being told twice.
+export EDITOR=micro VISUAL=micro
+
 # tty1 is the session. Anything else is a plain shell.
 #
 # dbus-run-session, not a user service manager: runit has none, and every
