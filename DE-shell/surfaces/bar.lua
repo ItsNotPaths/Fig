@@ -25,8 +25,8 @@
 -- e94ec64.
 
 local kipp   = require("lib.kipp")
-local theme  = require("lib.theme")
-local config = require("lib.config")
+local palette = require("lib.palette")
+local config = require("lib.settings")
 
 -- Lua checks the format itself and refuses glibc's %-d, so the leading zero
 -- comes off afterwards, and only the one after the weekday.
@@ -60,10 +60,10 @@ local RIGHT = {
 	{icon = "󰍹", run = ""},
 }
 
-theme.load()
-local BASE = theme.style("foreground", "background")
-local DIM  = theme.style("dark_foreground", "background")
-local ON   = theme.style("background", "accent")
+palette.load()
+local BASE = palette.style("foreground", "background")
+local DIM  = palette.style("dark_foreground", "background")
+local ON   = palette.style("background", "accent")
 
 local bar = {
 	facts = kipp.store(),
@@ -136,7 +136,7 @@ end
 function bar:onMessage(line)
 	-- A theme change rewrites the slots these ids name, so there is nothing
 	-- to reassign here and the next frame is already the new colours.
-	if theme.changed(line) then return end
+	if palette.changed(line) then return end
 
 	local word, rest = line:match("^(%a+)%s*(.*)$")
 	if word == "mode" then

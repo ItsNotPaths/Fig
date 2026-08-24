@@ -15,13 +15,13 @@
 -- A token naming something the palette does not hold is left alone. A raw
 -- {{ }} in a rendered file says which key is missing and where.
 
-local palette = require("theme.palette")
+local colors  = require("lib.theme.colors")
 
 local M = {}
 
 local function decorate(value, how)
 	if how == "strip" then return (value:gsub("^#", "")) end
-	if how == "rgb" then return palette.rgb(value) end
+	if how == "rgb" then return colors.rgb(value) end
 	return value
 end
 
@@ -51,23 +51,23 @@ end
 
 -- A gradient is colours and an optional angle, in any order.
 local function gradient(t, spec)
-	local colors, angle = {}, nil
+	local list, angle = {}, nil
 	for word in spec:gmatch("%S+") do
 		if word:match("^%-?%d+%.?%d*deg$") then
 			angle = word:gsub("deg$", "")
 		else
-			colors[#colors + 1] = t[word] or word
+			list[#list + 1] = t[word] or word
 		end
 	end
-	return colors, angle
+	return list, angle
 end
 
 local function hypr_gradient(t, spec)
-	local colors, angle = gradient(t, spec)
-	if #colors < 2 then return ('"%s"'):format(colors[1] or spec) end
+	local list, angle = gradient(t, spec)
+	if #list < 2 then return ('"%s"'):format(list[1] or spec) end
 
 	local out = "{ colors = {"
-	for i, c in ipairs(colors) do
+	for i, c in ipairs(list) do
 		out = out .. (i > 1 and "," or "") .. (' "%s"'):format(c)
 	end
 	out = out .. " }"
@@ -76,9 +76,9 @@ local function hypr_gradient(t, spec)
 end
 
 local function shell_gradient(t, spec)
-	local colors, angle = gradient(t, spec)
-	if #colors == 0 then return spec end
-	local out = table.concat(colors, " ")
+	local list, angle = gradient(t, spec)
+	if #list == 0 then return spec end
+	local out = table.concat(list, " ")
 	return angle and out .. " " .. angle .. "deg" or out
 end
 
@@ -101,15 +101,15 @@ local function value(t, token)
 	if head == "mix" or fn then
 		local from, to = t[word[2]], t[word[3]]
 		if not from or not to then return nil end
-		return decorate(palette.mix(from, to, word[4]), how)
+		return decorate(colors.mix(from, to, word[4]), how)
 	end
 
 	local spec = ref(t, word[2], word[3])
 	if head == "hypr_gradient"  then return hypr_gradient(t, spec) end
 	if head == "shell_gradient" then return shell_gradient(t, spec) end
 	if head == "gradient_start" then
-		local colors = gradient(t, spec)
-		return as_hex(colors[1] or spec)
+		local list = gradient(t, spec)
+		return as_hex(list[1] or spec)
 	end
 	return nil
 end

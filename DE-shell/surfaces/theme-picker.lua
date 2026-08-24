@@ -5,15 +5,15 @@
 -- does not have. The colours here are the current theme, so the picker is
 -- already showing you what a theme looks like.
 
-local theme  = require("lib.theme")
-local config = require("lib.config")
-local apply  = require("theme.apply")
+local palette = require("lib.palette")
+local config = require("lib.settings")
+local apply  = require("lib.theme.apply")
 
-local c = theme.load()
-local FG    = theme.argb(c.foreground)
-local BG    = theme.argb(c.background, 0xf2)
-local ACC   = theme.argb(c.accent)
-local MUTED = theme.argb(c.muted)
+local c = palette.load()
+local FG    = palette.argb(c.foreground)
+local BG    = palette.argb(c.background, 0xf2)
+local ACC   = palette.argb(c.accent)
+local MUTED = palette.argb(c.muted)
 
 local TITLE = Style.define(ACC, BG)
 local ITEM  = Style.define(FG, BG)

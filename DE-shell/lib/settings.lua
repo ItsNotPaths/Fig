@@ -4,7 +4,7 @@
 local M = {}
 
 local HOME = os.getenv("HOME") or ""
-local PATH = HOME .. "/.config/tildesh-shell/shell.lua"
+local PATH = HOME .. "/.config/tildesh-shell/config.lua"
 
 local DEFAULT = {font = "", family = "monospace", size = 16, size_foot = true}
 

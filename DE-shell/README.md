@@ -4,22 +4,23 @@ The visible desktop. Every piece here is a wweft surface or something one of
 them runs.
 
 ```
-shell.lua   what the shell is set to: the font and its size
-lib/        shared Lua, required by surfaces
-surfaces/   one file for each surface
-theme/      the theme engine: palette, render, apply, setters
-theme/templates/  {{ token }} config files, omarchy's and ours
-themes/     the palettes, vendored
-vendor/     omarchy's setters, unmodified, for applications we do not ship
+config.lua        what you set: the font and its size
+surfaces/         one file for each surface. Each one draws
+lib/              code. Nothing here draws and nothing here is a setting
+  settings.lua      reads config.lua
+  palette.lua       the colours now, and when they changed
+  kipp.lua          the facts off the kippsrv socket
+  theme/            the theme engine, and the templates it renders
+themes/           the palettes, vendored
+vendor/           omarchy's setters, unmodified, for what we do not ship
 ```
 
 Installed by the `tildesh-shell` package:
 
 | From | To |
 | --- | --- |
-| `surfaces/*.lua`, `shell.lua` | `/etc/skel/.config/tildesh-shell/` |
-| `lib/*.lua` | `/etc/skel/.config/tildesh-shell/lib/` |
-| `theme/` | `/etc/skel/.config/tildesh-shell/theme/` |
+| `config.lua`, `surfaces/*.lua` | `/etc/skel/.config/tildesh-shell/` |
+| `lib/` | `/etc/skel/.config/tildesh-shell/lib/` |
 | `themes/` | `/usr/share/tildesh/themes/` |
 | `vendor/setters/`, `vendor/helpers/` | `/usr/share/tildesh/theme-setters/` |
 
@@ -29,12 +30,14 @@ lives on PATH, the way foot does, and the shell is what runs on it.
 
 They go through `/etc/skel` because a surface has to be the user's copy to be
 editable. wweft puts the running script's own directory first on
-`package.path`, so `require("lib.theme")` resolves from wherever the surface
-sits and needs no path of its own.
+`package.path`, so `require("lib.palette")` resolves from wherever the surface
+sits and needs no path of its own. A surface stays at the top of the
+directory for that reason: from a subdirectory, `lib` would be looked for
+beside it.
 
 ## One theme reader, not ten
 
-A surface never parses a palette. It requires `lib/theme.lua`, which hands
+A surface never parses a palette. It requires `lib/palette.lua`, which hands
 back a table of colours and says when they changed. Adding a surface must not
 add a second copy of that, and changing what a palette looks like must touch
 one file.

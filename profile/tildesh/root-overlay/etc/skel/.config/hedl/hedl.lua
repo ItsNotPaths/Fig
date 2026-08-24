@@ -22,7 +22,10 @@ if not ok then
 end
 
 hedl.config({
-  general = { border_size = 2 },
+  -- resize_margin is how close to an edge a super+right-drag has to start for
+  -- that edge to be the one that moves. Grab the middle and it is the bottom
+  -- right corner, as dwl always did.
+  general = { border_size = 2, resize_margin = 48 },
 
   colors = colors,
 
@@ -93,6 +96,10 @@ for i = 1, 9 do
   -- Send the window and go with it. hedl.dsp.tag(i) on its own leaves you
   -- looking at the tag the window just left.
   hedl.bind(mod .. " + SHIFT + " .. i, "Move to " .. i .. " and follow", function()
+    -- A window that was floating goes back into the layout on the way. It
+    -- was floated to get it out of the way here, not there.
+    local c = hedl.focused()
+    if c then c.floating = false end
     hedl.dsp.tag(i)()
     hedl.dsp.view(i)()
   end)

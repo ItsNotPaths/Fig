@@ -8,9 +8,9 @@
 -- and every one of them reads $HOME/.local/state/omarchy/current/theme. So
 -- that path becomes a link to ours rather than a patch to fifteen files.
 
-local palette = require("theme.palette")
-local render  = require("theme.render")
-local setters = require("theme.setters")
+local colors  = require("lib.theme.colors")
+local render  = require("lib.theme.render")
+local setters = require("lib.theme.setters")
 
 -- Every path is a field and none is a local, so a caller that moves `home`
 -- moves all of them. A captured local looks the same and writes to the real
@@ -22,7 +22,7 @@ local M = {home = HOME}
 M.state     = HOME .. "/.local/state/tildesh"
 M.current   = M.state .. "/theme"
 M.dirs      = {HOME .. "/.config/tildesh/themes", "/usr/share/tildesh/themes"}
-M.templates = HOME .. "/.config/tildesh-shell/theme/templates"
+M.templates = HOME .. "/.config/tildesh-shell/lib/theme/templates"
 M.setters   = "/usr/share/tildesh/theme-setters"
 M.helpers   = M.setters .. "/helpers"
 M.compat    = HOME .. "/.local/state/omarchy/current"
@@ -98,22 +98,22 @@ function M.build(name, into)
 	sh("mkdir -p " .. into)
 	sh("cp -r " .. from .. "/. " .. into .. "/ 2>/dev/null")
 
-	local colors = palette.load(into .. "/colors.toml")
-	if not colors then return nil, name .. " has no colors.toml" end
+	local pal = colors.load(into .. "/colors.toml")
+	if not pal then return nil, name .. " has no colors.toml" end
 
 	for _, tpl in ipairs(names_in(M.templates, "f")) do
 		local out = tpl:gsub("%.tpl$", "")
 		if out ~= tpl and not exists(into .. "/" .. out) then
-			render.file(colors, M.templates .. "/" .. tpl, into .. "/" .. out)
+			render.file(pal, M.templates .. "/" .. tpl, into .. "/" .. out)
 		end
 	end
-	return colors
+	return pal
 end
 
 function M.apply(name)
 	local next_dir = M.state .. "/next-theme"
-	local colors, err = M.build(name, next_dir)
-	if not colors then return nil, err end
+	local pal, err = M.build(name, next_dir)
+	if not pal then return nil, err end
 
 	sh("rm -rf " .. M.current)
 	sh("mv " .. next_dir .. " " .. M.current)
@@ -141,14 +141,14 @@ function M.apply(name)
 	sh("ln -sfn " .. M.current .. "/micro.micro " ..
 	   M.home .. "/.config/micro/colorschemes/tildesh.micro")
 
-	M.poke(name, colors)
-	return colors
+	M.poke(name, pal)
+	return pal
 end
 
 -- The slow half. Every setter is a foreign application that has to be told,
 -- and none of them is worth making a person wait for.
-function M.poke(name, colors)
-	setters.all(colors, M.current)
+function M.poke(name, pal)
+	setters.all(pal, M.current)
 
 	sh("wweft --send theme 'theme " .. name .. "' 2>/dev/null &")
 	sh("printf 'RELOAD\\n' | socat -t0 - UNIX-CONNECT:" ..

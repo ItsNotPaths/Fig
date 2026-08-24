@@ -85,12 +85,13 @@ cp -a "$root/packaging/tildesh-defaults/files/." "$stage/tildesh-defaults/"
 # wweft's configuration than a script is bash's. wweft is a renderer on PATH.
 skel="$stage/tildesh-shell/etc/skel/.config/tildesh-shell"
 share="$stage/tildesh-shell/usr/share/tildesh"
-mkdir -p "$skel/lib" "$skel/theme" "$share/themes" "$share/theme-setters/helpers"
+mkdir -p "$skel/lib" "$share/themes" "$share/theme-setters/helpers"
+# The top of the directory is what a person edits: the config and the
+# surfaces. Everything under lib/ is code they only open to change how
+# something works.
+cp "$root/DE-shell/config.lua" "$skel/"
 cp "$root/DE-shell/surfaces/"*.lua "$skel/"
-cp "$root/DE-shell/shell.lua" "$skel/"
-cp "$root/DE-shell/lib/"*.lua "$skel/lib/"
-cp "$root/DE-shell/theme/"*.lua "$skel/theme/"
-cp -r "$root/DE-shell/theme/templates" "$skel/theme/templates"
+cp -r "$root/DE-shell/lib/." "$skel/lib/"
 cp -r "$root/DE-shell/themes/." "$share/themes/"
 cp "$root/DE-shell/vendor/setters/"* "$share/theme-setters/"
 cp "$root/DE-shell/vendor/helpers/"* "$share/theme-setters/helpers/"
