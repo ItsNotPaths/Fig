@@ -138,7 +138,7 @@ function M.apply(name)
 	-- micro reads a colourscheme by name from its own directory, so the name
 	-- stays put and the file behind it changes.
 	sh("mkdir -p " .. M.home .. "/.config/micro/colorschemes")
-	sh("ln -sfn " .. M.current .. "/micro.micro " ..
+	sh("cp -f " .. M.current .. "/micro.micro " ..
 	   M.home .. "/.config/micro/colorschemes/tildesh.micro")
 
 	M.poke(name, pal)

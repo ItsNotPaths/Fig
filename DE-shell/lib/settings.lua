@@ -9,14 +9,26 @@ local PATH = HOME .. "/.config/tildesh-shell/config.lua"
 local DEFAULT = {font = "", family = "monospace", size = 16, size_foot = true}
 
 function M.load()
-	local chunk = loadfile(PATH)
+	local chunk, why = loadfile(PATH)
 	local ok, t = pcall(chunk or function() return nil end)
+
+	-- Falling back without a word is how a typo in config.lua looks exactly
+	-- like the setting having no effect. Say which and why.
+	if not chunk then
+		io.stderr:write("tildesh-shell: ", tostring(why), "\n")
+	elseif not ok then
+		io.stderr:write("tildesh-shell: ", PATH, ": ", tostring(t), "\n")
+	elseif type(t) ~= "table" then
+		io.stderr:write("tildesh-shell: ", PATH, " returned no table\n")
+	end
 	if not ok or type(t) ~= "table" then t = {} end
 
 	for key, fallback in pairs(DEFAULT) do
 		if t[key] == nil then t[key] = fallback end
 	end
 	M.current = t
+	io.stderr:write(("tildesh-shell: font %s at %d\n")
+	                :format(t.font == "" and "(default)" or t.font, t.size))
 	return t
 end
 

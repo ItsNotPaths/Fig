@@ -25,7 +25,7 @@ hedl.config({
   -- resize_margin is how close to an edge a super+right-drag has to start for
   -- that edge to be the one that moves. Grab the middle and it is the bottom
   -- right corner, as dwl always did.
-  general = { border_size = 2, resize_margin = 48 },
+  general = { border_size = 2, resize_margin = 64 },
 
   colors = colors,
 
@@ -81,6 +81,13 @@ hedl.bind(mod .. " + Right",        "Focus next",    hedl.dsp.focusstack(1))
 hedl.bind(mod .. " + Down",         "Focus next",    hedl.dsp.focusstack(1))
 hedl.bind(mod .. " + Left",         "Focus prev",    hedl.dsp.focusstack(-1))
 hedl.bind(mod .. " + Up",           "Focus prev",    hedl.dsp.focusstack(-1))
+
+-- Shift moves the window instead of the focus, the same way shift and a
+-- number moves it to a tag.
+hedl.bind(mod .. " + SHIFT + Right","Move along",    hedl.dsp.movestack(1))
+hedl.bind(mod .. " + SHIFT + Down", "Move along",    hedl.dsp.movestack(1))
+hedl.bind(mod .. " + SHIFT + Left", "Move back",     hedl.dsp.movestack(-1))
+hedl.bind(mod .. " + SHIFT + Up",   "Move back",     hedl.dsp.movestack(-1))
 hedl.bind(mod .. " + H",            "Shrink master", hedl.dsp.setmfact(-0.05))
 hedl.bind(mod .. " + L",            "Grow master",   hedl.dsp.setmfact(0.05))
 hedl.bind(mod .. " + M",            "Zoom",          hedl.dsp.zoom())
