@@ -37,7 +37,8 @@ rootfs:
     # hedl-wm is ours, built into repo/ like kippsrv and wweft. It replaced
     # sway once Phase A passed, which also drops gnu-free-fonts (sway's
     # ttf-font dependency, and this image already ships three families) and
-    # wlroots0.20, so the image no longer carries two copies of wlroots.
+    # the second copy of wlroots: hedl is on 0.20 now, which is what sway
+    # wanted, so one build of it serves the whole image.
     #
     # swaybg, swayidle and swaylock stay. They are layer-shell,
     # ext-idle-notify and ext-session-lock clients, and dwl has all three.

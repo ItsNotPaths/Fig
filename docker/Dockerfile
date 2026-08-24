@@ -6,7 +6,7 @@ FROM artixlinux/artixlinux:base-devel
 # runs --nodeps in here, so anything it needs has to be in the image already.
 RUN pacman -Syu --noconfirm --needed \
         artools-iso git jq \
-        wlroots0.19 wayland wayland-protocols libxkbcommon libinput \
+        wlroots0.20 wayland wayland-protocols libxkbcommon libinput \
         libxcb xcb-util-wm lua54 \
     && pacman -Scc --noconfirm
 

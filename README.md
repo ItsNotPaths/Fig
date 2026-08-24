@@ -87,7 +87,7 @@ it vendors itself. Artix and Arch carry the same glibc, and neither binary
 links anything else that moves. `ldd` after a build is the check.
 
 hedl is built in the container, because nothing stops it: it is C, and
-`wlroots0.19` and the rest are Artix packages. Only its source is staged.
+`wlroots0.20` and the rest are Artix packages. Only its source is staged.
 
 `buildiso` reads `repo/` as `file:///repo`, through a pacman config the
 container derives from the one artools ships.

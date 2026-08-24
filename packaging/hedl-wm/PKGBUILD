@@ -8,7 +8,7 @@ pkgdesc="hedl, the tildesh window manager. A dwl fork"
 arch=('x86_64')
 url="https://github.com/ItsNotPaths/hedl-wm"
 license=('GPL-3.0-or-later')
-depends=('wlroots0.19' 'wayland' 'libxkbcommon' 'libinput' 'libxcb' 'xcb-util-wm'
+depends=('wlroots0.20' 'wayland' 'libxkbcommon' 'libinput' 'libxcb' 'xcb-util-wm'
          'xorg-xwayland' 'lua54')
 makedepends=('wayland-protocols')
 
