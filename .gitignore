@@ -1,0 +1,10 @@
+docs/
+
+# Populated by download-deps, upstream 
+vendor/
+
+# Build output.
+dist/
+
+# The local package repo, built by packaging/build-packages.sh.
+repo/
