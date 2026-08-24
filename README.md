@@ -184,7 +184,7 @@ provides, and polkit and the portals want the logind D-Bus API anyway.
 for dinit and openrc but not for runit, and there is no `pipewire-runit`. So
 the session starts its own daemons: `.bash_profile` runs `dbus-run-session
 hedl`, and hedl's `start` hook spawns pipewire, pipewire-pulse, wireplumber,
-dunst, swayidle, kippsrv and the bar. There is no `exec` on the hedl line, so a
+swayidle, kippsrv and the bar. There is no `exec` on the hedl line, so a
 compositor that dies leaves a shell on tty1 with its log beside it.
 
 **Some services enable themselves.** `dbus-runit`, `elogind-runit`,

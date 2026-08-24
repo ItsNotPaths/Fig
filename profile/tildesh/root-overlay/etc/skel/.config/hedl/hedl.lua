@@ -55,7 +55,7 @@ hedl.config({
 -- These were `exec` lines in the sway config and mean the same thing here.
 hedl.on("start", function()
   for _, cmd in ipairs({
-    "pipewire", "pipewire-pulse", "wireplumber", "dunst",
+    "pipewire", "pipewire-pulse", "wireplumber",
     -- The idle daemon runs so that the bar's stay-awake toggle has something
     -- to turn off, and starts through the same verb the toggle uses so the
     -- timeout is written once. swaybg is not started: no theme ships a

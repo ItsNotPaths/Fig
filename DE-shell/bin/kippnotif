@@ -1,0 +1,50 @@
+#!/bin/bash
+# Fill the panel with something to look at.
+#
+# Every notification on this desktop arrives the same way a real one does, over
+# org.freedesktop.Notifications, so this is notify-send and nothing clever. It
+# is here because a panel with nothing in it tells you very little, and because
+# the interesting cases -- a critical one, a long body, one that replaces
+# another, one that carries a command -- are tedious to type by hand.
+#
+#   kippnotif          one of each
+#   kippnotif N        N filler notifications, for scrolling
+
+set -u
+
+say() { notify-send "$@"; }
+
+burst() {
+	local n=$1 i
+	for ((i = 1; i <= n; i++)); do
+		say "Notification $i" "The $i'th of $n, for scrolling past."
+	done
+}
+
+if [[ ${1:-} =~ ^[0-9]+$ ]]; then
+	burst "$1"
+	exit 0
+fi
+
+say "Plain" "A body, and nothing else to it."
+
+say -u low "Quiet" "Low urgency. The panel does not colour it."
+
+say -u critical "Critical" "Drawn in the theme's red."
+
+say "No body at all"
+
+say "A summary long enough to need cutting, which is the point of this one" \
+    "And a body that runs on well past the width of the panel, so the clip is \
+visible rather than something to take on faith."
+
+# What the screenshot toast does: the command outlives the process that sent it.
+say --hint=string:x-kipp-exec:"foot -e micro /etc/os-release" \
+    "Press Return on me" "Opens os-release in micro."
+
+# Two with the same id: the second replaces the first in place, so it does not
+# walk down the list the way a new one would.
+id=$(notify-send -p "Replacing" "This text is the first version.")
+say -r "$id" "Replaced" "Same slot, second version."
+
+printf 'sent. SUPER + Right Shift, then Return on [!]\n'

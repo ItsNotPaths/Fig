@@ -20,6 +20,12 @@ return {
 		-- else.
 		{ name = "tray", watcher = true, adapter = lua .. "/tray/snw.lua" },
 
+		-- Notifications, the same way and for the same reason: kippsrv owns
+		-- org.freedesktop.Notifications, so it is the notification daemon
+		-- rather than a reader of one. Nothing else on the image may hold
+		-- that name, which is why dunst is not installed.
+		{ name = "notify", notify = true, adapter = lua .. "/notify/fdo.lua" },
+
 		-- hedl. One source and no seed: hedl sends its whole state when a
 		-- consumer connects and again on every change, so there is nothing
 		-- to prime. It is kipp on the wire already, which is why the
