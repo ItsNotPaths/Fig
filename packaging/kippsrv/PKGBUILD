@@ -1,0 +1,15 @@
+# The binary is built on the host, because Odin is in no Artix repo. This
+# file only wraps what packaging/build-packages.sh already staged.
+pkgname=kippsrv
+pkgver=${PKGVER:?PKGVER is not set}
+pkgrel=1
+pkgdesc="Desktop state on one socket"
+arch=('x86_64')
+url="https://github.com/ItsNotPaths/kippsrv"
+license=('MIT')
+depends=('glibc')
+options=('!strip' '!debug')
+
+package() {
+	cp -a "${STAGE:?STAGE is not set}"/. "$pkgdir"/
+}

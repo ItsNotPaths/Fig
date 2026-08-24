@@ -1,0 +1,188 @@
+#!/bin/sh
+# tildesh-selftest — what the image claims, checked on the image.
+#
+# hedl runs on the headless wlroots backend, so this needs no GPU, no seat and
+# no monitor. Run it over ssh, in a VM, or from tty2 while the desktop is up.
+#
+# It got shorter when sway left. Sway's IPC is JSON over a socket, so the old
+# version had to check the seed commands, the field names each seed carries and
+# whether the event stream was one object a line. hedl publishes kipp, which is
+# the format everything downstream already speaks, so there is nothing to seed,
+# nothing to frame and nothing to translate. What is left is the seam itself.
+#
+# Each check prints one line, kind first:
+#   ok <name>
+#   not ok <name>	<why>
+#   skip <name>	<why>
+#
+# Exit status is the number of failures.
+set -u
+
+fails=0
+ok()   { printf 'ok\t%s\n' "$1"; }
+bad()  { printf 'not ok\t%s\t%s\n' "$1" "$2"; fails=$((fails + 1)); }
+skip() { printf 'skip\t%s\t%s\n' "$1" "$2"; }
+
+tmp=$(mktemp -d)
+hedl_pid=""
+kipp_pid=""
+cleanup() {
+	[ -n "$kipp_pid" ] && kill "$kipp_pid" 2>/dev/null
+	[ -n "$hedl_pid" ] && kill "$hedl_pid" 2>/dev/null
+	rm -rf "$tmp"
+}
+trap cleanup EXIT INT TERM
+
+# ---------------------------------------------------------------- the tools
+
+for t in hedl socat; do
+	command -v "$t" >/dev/null 2>&1 || bad "tool-$t" "not on PATH"
+done
+[ "$fails" -gt 0 ] && exit "$fails"
+
+: "${XDG_RUNTIME_DIR:=/run/user/$(id -u)}"
+export XDG_RUNTIME_DIR
+[ -d "$XDG_RUNTIME_DIR" ] || { bad "runtime-dir" "$XDG_RUNTIME_DIR does not exist"; exit "$fails"; }
+
+# -------------------------------------------------------------- headless hedl
+#
+# Its own HEDLDIR, so this never touches the socket a running desktop owns and
+# two of these can run at once.
+
+dir="$tmp/run"
+echo 'hedl.bind("SUPER + Q", "quit", hedl.dsp.quit())' > "$tmp/hedl.lua"
+
+WLR_BACKENDS=headless \
+WLR_LIBINPUT_NO_DEVICES=1 \
+HEDL_CONFIG="$tmp/hedl.lua" \
+HEDLDIR="$dir" \
+	hedl >"$tmp/hedl.log" 2>&1 &
+hedl_pid=$!
+
+n=0
+while [ ! -S "$dir/kipp" ] && [ "$n" -lt 100 ]; do
+	kill -0 "$hedl_pid" 2>/dev/null || break
+	n=$((n + 1))
+	sleep 0.1
+done
+
+if [ ! -S "$dir/kipp" ]; then
+	bad "hedl-headless" "no socket after 10s; log: $(tr '\n' ' ' < "$tmp/hedl.log" | tail -c 200)"
+	exit "$fails"
+fi
+ok "hedl-headless"
+[ -p "$dir/cmd" ] && ok "hedl-cmd-fifo" || bad "hedl-cmd-fifo" "$dir/cmd is not a fifo"
+
+# ------------------------------------------------------------- the kipp stream
+#
+# A consumer connects and is told everything: a version line, the whole current
+# state, then sync. No seed source, because there is nothing to prime.
+
+socat -u UNIX-CONNECT:"$dir/kipp" - > "$tmp/kipp.out" 2>/dev/null &
+sock_pid=$!
+sleep 1
+printf 'view\t4\n' > "$dir/cmd"
+printf 'setlayout\tmonocle\n' > "$dir/cmd"
+sleep 1
+kill "$sock_pid" 2>/dev/null
+
+for kind in version mon focus tag layout sync; do
+	if grep -q "^$kind	" "$tmp/kipp.out"; then
+		ok "kipp-$kind"
+	else
+		bad "kipp-$kind" "no $kind line on the socket"
+	fi
+done
+
+# The session order the spec asks for. A consumer that acts before sync is
+# acting on half a picture, so sync has to come after the state and not with it.
+if [ "$(head -1 "$tmp/kipp.out" | cut -f1)" = version ]; then
+	ok "kipp-version-first"
+else
+	bad "kipp-version-first" "first line is $(head -1 "$tmp/kipp.out" | cut -f1)"
+fi
+if awk -F'\t' '$1=="sync"{print NR; exit}' "$tmp/kipp.out" | grep -q '[3-9]'; then
+	ok "kipp-sync-after-state"
+else
+	bad "kipp-sync-after-state" "sync arrived before the state did"
+fi
+
+# A command on the fifo has to move the state on the socket. This is the whole
+# loop: something outside writes a line, and every reader sees the result.
+if awk -F'\t' '$1=="layout" && $3=="name=monocle"' "$tmp/kipp.out" | grep -q .; then
+	ok "cmd-drives-state"
+else
+	bad "cmd-drives-state" "setlayout on the fifo did not reach the socket"
+fi
+
+# The subject of a focus is a monitor. An adapter or a publisher that names a
+# tag here instead makes every consumer that keys on the monitor draw twice.
+# Checking the line exists does not catch it; checking what it names does.
+mons=$(awk -F'\t' '$1=="mon" { print $2 }' "$tmp/kipp.out" | sort -u)
+seen=$(awk -F'\t' '$1=="focus" { print $2 }' "$tmp/kipp.out" | sort -u)
+stray=$(printf '%s\n' $seen | grep -vxF "$mons" || true)
+if [ -z "$seen" ]; then
+	bad "kipp-focus-subject" "no focus subject to check"
+elif [ -n "$stray" ]; then
+	bad "kipp-focus-subject" "focus names $(echo $stray), which is no monitor"
+else
+	ok "kipp-focus-subject"
+fi
+
+# ----------------------------------------------------------------- kippsrv
+#
+# Skipped when kippsrv is not installed, so this file is useful before the
+# shell is vendored into the image.
+
+if ! command -v kippsrv >/dev/null 2>&1; then
+	skip "kippsrv-hedl" "kippsrv not installed"
+	exit "$fails"
+fi
+
+adapter=/usr/share/kippsrv/lua/wm/hedl.lua
+if [ ! -f "$adapter" ]; then
+	skip "kippsrv-hedl" "$adapter not installed"
+	exit "$fails"
+fi
+
+cat > "$tmp/kipp.lua" <<EOF
+return {
+	socket = "$tmp/kippsrv.sock",
+	sources = {
+		{ name = "wm", adapter = "$adapter", sock = "$dir/kipp" },
+	},
+}
+EOF
+
+kippsrv "$tmp/kipp.lua" >"$tmp/kippsrv.log" 2>&1 &
+kipp_pid=$!
+
+n=0
+while [ ! -S "$tmp/kippsrv.sock" ] && [ "$n" -lt 50 ]; do
+	n=$((n + 1))
+	sleep 0.1
+done
+
+if [ ! -S "$tmp/kippsrv.sock" ]; then
+	bad "kippsrv-hedl" "no socket; log: $(tr '\n' ' ' < "$tmp/kippsrv.log" | tail -c 200)"
+	exit "$fails"
+fi
+
+socat -u UNIX-CONNECT:"$tmp/kippsrv.sock" - > "$tmp/shell.out" 2>/dev/null &
+sock_pid=$!
+sleep 1
+printf 'view\t7\n' > "$dir/cmd"
+sleep 1
+kill "$sock_pid" 2>/dev/null
+
+# What hedl said has to come out the other side. If the adapter ever needs a
+# rule, the two formats have drifted and this is where it shows.
+for kind in tag focus layout; do
+	if grep -q "^$kind	" "$tmp/shell.out"; then
+		ok "shell-$kind"
+	else
+		bad "shell-$kind" "kippsrv did not republish $kind"
+	fi
+done
+
+exit "$fails"

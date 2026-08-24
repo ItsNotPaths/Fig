@@ -1,0 +1,22 @@
+# The only package built in the container. hedl is C and every dependency is in
+# an Artix repo, so there is no reason to build it on the host the way kippsrv
+# and wweft are. STAGE holds the source tree, staged by build-packages.sh.
+pkgname=hedl-wm
+pkgver=${PKGVER:?PKGVER is not set}
+pkgrel=1
+pkgdesc="hedl, the tildesh window manager. A dwl fork"
+arch=('x86_64')
+url="https://github.com/ItsNotPaths/hedl-wm"
+license=('GPL-3.0-or-later')
+depends=('wlroots0.19' 'wayland' 'libxkbcommon' 'libinput' 'libxcb' 'xcb-util-wm'
+         'xorg-xwayland' 'lua54')
+makedepends=('wayland-protocols')
+
+build() {
+	cp -a "${STAGE:?STAGE is not set}" hedl
+	make -C hedl PREFIX=/usr
+}
+
+package() {
+	make -C hedl PREFIX=/usr DESTDIR="$pkgdir" install
+}

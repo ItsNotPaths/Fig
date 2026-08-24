@@ -1,0 +1,10 @@
+# Autologin the live user on tty1. Overrides the file the runit package ships.
+# The live user's .bash_profile takes it from here.
+if [ -x /sbin/agetty ] || [ -x /bin/agetty ]; then
+	if [ "${tty}" = "tty1" ]; then
+		GETTY_ARGS="--noclear --autologin tildesh"
+	fi
+fi
+
+BAUD_RATE=38400
+TERM_NAME=linux

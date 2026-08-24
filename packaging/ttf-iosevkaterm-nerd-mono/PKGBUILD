@@ -1,0 +1,17 @@
+# Four faces of IosevkaTerm Nerd Font Mono, fetched by download-deps.sh.
+#
+# Artix's ttf-iosevkaterm-nerd is the same typeface at 1141 MB, because it
+# installs all 81 TTFs: every weight from Thin to Heavy, each in italic, in
+# three spacing variants. A terminal draws four of them.
+pkgname=ttf-iosevkaterm-nerd-mono
+pkgver=${PKGVER:?PKGVER is not set}
+pkgrel=1
+pkgdesc="IosevkaTerm Nerd Font Mono, regular bold italic bold-italic only"
+arch=('any')
+url="https://github.com/ryanoasis/nerd-fonts"
+license=('OFL-1.1')
+options=('!strip' '!debug')
+
+package() {
+	cp -a "${STAGE:?STAGE is not set}"/. "$pkgdir"/
+}

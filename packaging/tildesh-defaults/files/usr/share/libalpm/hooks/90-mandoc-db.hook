@@ -1,0 +1,19 @@
+# mandoc ships no hook of its own, so nothing builds its index and every `man`
+# prints "outdated mandoc.db" while apropos finds nothing.
+#
+# This has to arrive as a package rather than through the ISO's root-overlay:
+# the overlay is copied after pacman has finished, so a hook sitting in it
+# would never fire during the image build. pacman scans the hook directories
+# when the transaction commits, so a hook installed by that same transaction
+# is seen.
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Type = Path
+Target = usr/share/man/*
+
+[Action]
+Description = Building the mandoc index...
+When = PostTransaction
+Exec = /usr/bin/makewhatis /usr/share/man

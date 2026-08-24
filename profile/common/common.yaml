@@ -1,0 +1,84 @@
+---
+# Ours, not Artix's. buildiso prefers this file over the packaged one because
+# it sits beside the profile. Upstream's list carries Xorg, thirteen xf86
+# drivers, five filesystem toolkits and zsh. None of that boots a Wayland
+# desktop, so none of it is here.
+#
+# Everything in packages-base is installed into every tildesh profile.
+
+packages-base:
+  - base
+  - runit
+  - linux
+  - linux-headers
+  - mkinitcpio
+
+  # Firmware, split by vendor. The full linux-firmware is 800 MB. These three
+  # cover the target laptop: Radeon graphics, an MT7925 wifi and bluetooth
+  # combo card, and an RTL8125 ethernet controller.
+  - linux-firmware-amdgpu
+  - linux-firmware-mediatek
+  - linux-firmware-realtek
+  - amd-ucode
+  - intel-ucode
+  - wireless-regdb
+
+  # Boot and disks. artix-grub-theme is not decoration: artools copies
+  # usr/share/grub/themes/artix out of the rootfs and dies when it is absent.
+  - grub
+  - artix-grub-theme
+  - efibootmgr
+  - dosfstools
+  - e2fsprogs
+  - btrfs-progs
+  - cryptsetup
+  - lvm2
+
+  # Documentation. Every package installs its man pages whether or not
+  # anything can open them, so leaving the reader out does not save the
+  # 79 MB, it only makes it unreadable.
+  #
+  # mandoc and not man-db: it reads man and mdoc, depends on zlib alone, and
+  # is 1.2 MB. man-db is 2.5 MB and pulls groff, a typesetting system built
+  # to drive phototypesetters, for 9 MB more. Both provide `man`, so this is
+  # a swap. mandoc also brings apropos and whatis.
+  #
+  # man-pages is content: the sections no package ships for itself, so
+  # `man 2 open` and `man 7 signal` work.
+  - mandoc
+  - man-pages
+
+  # A shell that works before the desktop does.
+  - less
+  - nano
+  - sudo
+  - which
+  - diffutils
+  - usbutils
+  - pciutils
+  - inetutils
+  - iptables
+
+packages-apps: []
+
+# Only read when a profile declares a livefs section. tildesh does not.
+packages-xorg: []
+packages-xlibre: []
+packages-misc: []
+
+packages-init:
+  runit:
+    - rsm
+    - elogind-runit
+    - dbus-runit
+    - acpid-runit
+    - cronie-runit
+  dinit: []
+  openrc: []
+  s6: []
+
+# The ISO's own boot chroot. memtest86+ is here because artools copies
+# boot/memtest86+/memtest.bin unconditionally and dies when it is absent.
+packages-boot:
+  - iso-initcpio
+  - memtest86+

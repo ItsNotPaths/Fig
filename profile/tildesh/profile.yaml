@@ -1,0 +1,125 @@
+---
+# tildesh, on runit. No display manager: agetty autologins on tty1 and the
+# live user's .bash_profile runs hedl.
+#
+# The seat comes from elogind, not seatd: Artix marks elogind-runit and
+# seatd-runit as conflicting, `base` depends on the init-logind that only
+# elogind provides, and polkit and the portals want the logind D-Bus API
+# anyway. libseat inside wlroots picks logind on its own.
+#
+# There is no livefs section on purpose. It is what keeps buildiso from
+# pulling Xorg and the xf86 driver set in behind our backs. The live-only
+# packages sit in rootfs instead, the same way the stock base profile does it.
+
+live-session:
+  user: tildesh
+  password: tildesh
+  autologin: true
+  use-xlibre: false
+  # Only services no package enables for itself. dbus-runit links `dbus`,
+  # elogind-runit links `logind` (an sv symlink to elogind), artix-live-runit
+  # links `pacman-init`, and the runit package links the six agettys. Naming
+  # any of them here makes buildiso abort, because its own `ln -s` then fails
+  # on a link that is already there.
+  services:
+    - NetworkManager
+    - bluetoothd
+    - acpid
+    # A login on the serial port, so the image can be driven in a VM with no
+    # screen. `qemu -serial mon:stdio` is then a whole test rig.
+    - agetty-ttyS0
+  user-services: []
+
+rootfs:
+  packages:
+    # Compositor and session.
+    #
+    # hedl-wm is ours, built into repo/ like kippsrv and wweft. It replaced
+    # sway once Phase A passed, which also drops gnu-free-fonts (sway's
+    # ttf-font dependency, and this image already ships three families) and
+    # wlroots0.20, so the image no longer carries two copies of wlroots.
+    #
+    # swaybg, swayidle and swaylock stay. They are layer-shell,
+    # ext-idle-notify and ext-session-lock clients, and dwl has all three.
+    - hedl-wm
+    - swaybg
+    - swayidle
+    - swaylock
+    - foot
+    - polkit
+    - xdg-desktop-portal
+    - xdg-desktop-portal-wlr
+
+    # Graphics. vulkan-swrast is what makes the ISO boot on a VM with no
+    # passthrough GPU; vulkan-radeon is for the laptop.
+    - mesa
+    - vulkan-radeon
+    - vulkan-swrast
+
+    # Fonts. ttf-iosevkaterm-nerd-mono is ours: four faces, 57 MB, built by
+    # packaging/build-packages.sh. Artix's ttf-iosevkaterm-nerd is the same
+    # typeface at 1141 MB because it ships all 81 of them.
+    #
+    # ttf-dejavu is named so that pacman does not have to choose a ttf-font
+    # provider on its own, and it covers the scripts Iosevka does not.
+    # ttf-nerd-fonts-symbols is the glyph fallback for anything that ends up
+    # in a font we did not choose.
+    - ttf-iosevkaterm-nerd-mono
+    - ttf-dejavu
+    - ttf-nerd-fonts-symbols
+    # A tray icon is looked up by name in an icon theme. With none installed
+    # swaybar logs "no icon themes loaded" and draws nothing.
+    - hicolor-icon-theme
+    - adwaita-icon-theme
+
+    # Ours. Built by packaging/build-packages.sh into repo/, which the build
+    # container mounts at file:///repo.
+    - tildesh-defaults
+    - kippsrv
+    - wweft
+
+    # The seam. Every one of these is named by a kippsrv adapter or by a
+    # surface that reads one.
+    - networkmanager
+    - bluez
+    - bluez-utils
+    - pipewire
+    - pipewire-pulse
+    - pipewire-audio
+    - wireplumber
+    - brightnessctl
+    - playerctl
+    - upower
+    # D-Bus activated. Without it PipeWire cannot raise its own priority and
+    # says so once for every thread it starts.
+    - rtkit
+    - dunst
+    - grim
+    - slurp
+    - wl-clipboard
+    - socat
+    - jq
+    # pactl, which the audio adapter runs. pipewire-pulse replaces the daemon
+    # and not the tool.
+    - libpulse
+
+    # Utilities. An editor, a file manager and a process viewer, so a bare
+    # image is usable before any of the shell exists.
+    - micro
+    - yazi
+    - btop
+
+    - earlyoom
+
+    # Live ISO only.
+    - artix-grub-live
+    - squashfs-tools
+
+  packages-init:
+    runit:
+      - networkmanager-runit
+      - bluez-runit
+      - artix-live-runit
+    dinit: []
+    openrc: []
+    s6: []

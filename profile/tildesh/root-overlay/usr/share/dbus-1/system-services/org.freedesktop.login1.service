@@ -1,0 +1,14 @@
+# Overrides the file elogind ships, whose Exec is `elogind --daemon`.
+#
+# Two things start elogind on Artix: runit supervises it as `logind`, and
+# D-Bus activates it for any client that asks for org.freedesktop.login1.
+# Whichever wins the race owns the name, and the loser prints "elogind is
+# already running" and exits. When D-Bus wins, runsv restarts its copy once a
+# second forever, and a login that waits on pam_elogind never returns.
+#
+# So D-Bus starts the supervised service instead of a second daemon. `sv
+# start` returns once runsv reports it up, which is what activation waits for.
+[D-BUS Service]
+Name=org.freedesktop.login1
+Exec=/usr/bin/sv start logind
+User=root
