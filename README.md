@@ -24,8 +24,8 @@ DE-shell/
   surfaces/         the bar and the theme picker, drawn by wweft
   bin/              what a surface runs, on PATH
   lib/              the theme engine and the kipp fact store
-  themes/           the palettes
-  vendor/           omarchy's theme setters, and the NOTICE for them
+  themes/           the palettes, fetched
+  vendor/           the NOTICE for omarchy's setters, and a drift check
 packaging/
   build-packages.sh build our packages, index them into repo/
   kippsrv/PKGBUILD  wraps a binary this machine built
@@ -38,12 +38,16 @@ packaging/
 scripts/
   build-host.sh     build the container image
   build-iso.sh      build the ISO into dist/
-download-deps.sh    fetch vendor/: the four font faces that ship, and
-                    Artix's iso-profiles to diff our own against
+download-deps.sh    fetch what is not ours: the four font faces that ship,
+                    Artix's iso-profiles to diff our own against, and
+                    omarchy's palettes, templates and setters
 ```
 
 `docs/`, `vendor/`, `repo/`, `dist/` and the `scripts/vm*` helpers are
-gitignored. The only documents in the tree are this file and
+gitignored, and so is everything `download-deps.sh` writes into `DE-shell/`.
+The palettes, the templates and the setters are omarchy's, pinned to a tag and
+fetched rather than committed, so this tree holds no copy of somebody else's
+590 KB. The only documents in the tree are this file and
 `DE-shell/README.md`. Neither is installed.
 
 ## Where our files live

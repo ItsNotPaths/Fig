@@ -13,8 +13,8 @@ lib/              code. Nothing here draws and nothing here is a setting
   palette.lua       the colours now, and when they changed
   kipp.lua          the facts off the kippsrv socket
   theme/            the theme engine, and the templates it renders
-themes/           the palettes, vendored
-vendor/           omarchy's setters, unmodified, for what we do not ship
+themes/           the palettes. Fetched, not committed
+vendor/           the NOTICE for omarchy's setters, and check.sh
 ```
 
 Installed by the `tildesh-shell` package:
@@ -74,7 +74,9 @@ That is what stops a second code path for "I started late".
 
 The palettes, the templates and the setters are omarchy's, unmodified, so a
 theme written for omarchy works here and an upstream fix arrives as a diff.
-`vendor/check.sh` reports what has drifted.
+None of them are committed: `download-deps.sh` fetches them at a pinned tag
+into the directories above, and `vendor/check.sh` reports what has drifted
+against an installed omarchy.
 
 Every vendored setter reads `$HOME/.local/state/omarchy/current/theme`. That
 path becomes a link to ours rather than a patch to fifteen files.

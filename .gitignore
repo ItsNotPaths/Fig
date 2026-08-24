@@ -11,3 +11,14 @@ repo/
 
 # The QEMU workflow. This machine's, not the image's.
 /scripts/vm*
+
+# Omarchy's, fetched by download-deps.sh into the tree it is read from. Ours
+# live in the same directories and are listed back in after each pattern.
+/DE-shell/themes/*/*
+!/DE-shell/themes/*/backgrounds/
+/DE-shell/vendor/setters/
+/DE-shell/vendor/helpers/
+/DE-shell/lib/theme/templates/*.tpl
+!/DE-shell/lib/theme/templates/hedl-colors.lua.tpl
+!/DE-shell/lib/theme/templates/micro.micro.tpl
+!/DE-shell/lib/theme/templates/tildesh.lua.tpl
