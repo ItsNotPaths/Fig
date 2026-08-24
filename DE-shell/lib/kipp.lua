@@ -117,7 +117,10 @@ end
 -- out. A publisher whose channel is a FIFO can be written with io.open
 -- instead, and should be.
 function M.send(command)
-	local cmd = ("printf '%s\\n' | socat -t0 - UNIX-CONNECT:%s 2>/dev/null &")
+	-- -t0 loses the command: socat tears the connection down the instant stdin
+	-- ends, and kippsrv is left with nothing to read. Anything above zero is
+	-- enough, and the process is backgrounded either way.
+	local cmd = ("printf '%s\\n' | socat -t0.2 - UNIX-CONNECT:%s 2>/dev/null &")
 	            :format(command:gsub("'", ""), M.socket)
 	if Surface and Surface.spawn then Surface.spawn(cmd) else os.execute(cmd) end
 end
