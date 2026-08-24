@@ -66,6 +66,12 @@ hedl.bind(mod .. " + SHIFT + E",    "Leave",        hedl.dsp.quit())
 
 hedl.bind(mod .. " + J",            "Focus next",    hedl.dsp.focusstack(1))
 hedl.bind(mod .. " + K",            "Focus prev",    hedl.dsp.focusstack(-1))
+-- The same two under the arrows. Unbound, they reach the terminal instead and
+-- it prints the tail of the escape the arrow sent.
+hedl.bind(mod .. " + Right",        "Focus next",    hedl.dsp.focusstack(1))
+hedl.bind(mod .. " + Down",         "Focus next",    hedl.dsp.focusstack(1))
+hedl.bind(mod .. " + Left",         "Focus prev",    hedl.dsp.focusstack(-1))
+hedl.bind(mod .. " + Up",           "Focus prev",    hedl.dsp.focusstack(-1))
 hedl.bind(mod .. " + H",            "Shrink master", hedl.dsp.setmfact(-0.05))
 hedl.bind(mod .. " + L",            "Grow master",   hedl.dsp.setmfact(0.05))
 hedl.bind(mod .. " + M",            "Zoom",          hedl.dsp.zoom())
