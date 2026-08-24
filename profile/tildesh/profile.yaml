@@ -75,6 +75,7 @@ rootfs:
     # Ours. Built by packaging/build-packages.sh into repo/, which the build
     # container mounts at file:///repo.
     - tildesh-defaults
+    - tildesh-shell
     - kippsrv
     - wweft
 

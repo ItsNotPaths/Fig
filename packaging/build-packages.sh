@@ -53,7 +53,7 @@ say "wweft: build.sh"
 
 # --------------------------------------------------------------------- stage
 
-pkgs="kippsrv wweft hedl-wm ttf-iosevkaterm-nerd-mono tildesh-defaults"
+pkgs="kippsrv wweft hedl-wm ttf-iosevkaterm-nerd-mono tildesh-defaults tildesh-shell"
 for p in $pkgs; do rm -rf "$stage/$p"; mkdir -p "$stage/$p"; done
 mkdir -p "$repo"
 
@@ -77,6 +77,21 @@ cp "$fonts"/*.ttf "$stage/ttf-iosevkaterm-nerd-mono/usr/share/fonts/TTF/"
 
 # Plain files, kept in the tree beside their PKGBUILD.
 cp -a "$root/packaging/tildesh-defaults/files/." "$stage/tildesh-defaults/"
+
+# The shell. Surfaces and the theme engine are the user's, so they go through
+# /etc/skel; the palettes and the vendored setters are the machine's.
+skel="$stage/tildesh-shell/etc/skel/.config/wweft"
+share="$stage/tildesh-shell/usr/share/tildesh"
+mkdir -p "$skel/lib" "$skel/theme" "$share/themes" "$share/theme-setters/helpers"
+cp "$root/DE-shell/surfaces/"*.lua "$skel/"
+cp "$root/DE-shell/lib/"*.lua "$skel/lib/"
+cp "$root/DE-shell/theme/"*.lua "$skel/theme/"
+cp -r "$root/DE-shell/theme/templates" "$skel/theme/templates"
+cp -r "$root/DE-shell/themes/." "$share/themes/"
+cp "$root/DE-shell/vendor/setters/"* "$share/theme-setters/"
+cp "$root/DE-shell/vendor/helpers/"* "$share/theme-setters/helpers/"
+cp "$root/DE-shell/vendor/NOTICE" "$share/theme-setters/NOTICE"
+chmod +x "$share/theme-setters/"* "$share/theme-setters/helpers/"* 2>/dev/null || true
 
 # ---------------------------------------------------------------- wrap + index
 #
@@ -109,7 +124,8 @@ docker run --rm \
 wweft:$(version "$WWEFT_DIR") \
 hedl-wm:$(version "$HEDL_DIR") \
 ttf-iosevkaterm-nerd-mono:$(sed -n 's/^NERD_VERSION=v//p' "$root/download-deps.sh") \
-tildesh-defaults:$(version "$root")" \
+tildesh-defaults:$(version "$root") \
+tildesh-shell:$(version "$root")" \
 	-e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
 	tildesh-build bash -c "$inner"
 
