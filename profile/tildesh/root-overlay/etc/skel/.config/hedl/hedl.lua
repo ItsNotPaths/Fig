@@ -7,15 +7,24 @@
 local mod  = "SUPER"
 local term = "foot"
 
-hedl.config({
-  general = { border_size = 2 },
-
+-- colors.lua is a link into the current theme, written when one is applied.
+-- A theme change sends RELOAD through kippsrv, hedl runs this file again, and
+-- the borders follow. Before the first theme there is no link, so the table
+-- below is what a fresh image looks like.
+local ok, colors = pcall(require, "colors")
+if not ok then
   colors = {
     focus  = "#7aa2f7",
     border = "#292e42",
     urgent = "#f7768e",
     root   = "#1a1b26",
-  },
+  }
+end
+
+hedl.config({
+  general = { border_size = 2 },
+
+  colors = colors,
 
   animation = { enabled = true, divisor = 6, snap = 2 },
 
@@ -41,6 +50,7 @@ end)
 hedl.bind(mod .. " + Return",       "Terminal",     hedl.dsp.spawn(term))
 hedl.bind(mod .. " + Q",            "Close window", hedl.dsp.killclient())
 hedl.bind(mod .. " + D",            "What kippsrv says", hedl.dsp.spawn("test-wweft"))
+hedl.bind(mod .. " + SHIFT + T",    "Theme",        hedl.dsp.spawn("wweft ~/.config/wweft/theme-picker.lua"))
 hedl.bind(mod .. " + SHIFT + C",    "Reload config", hedl.dsp.reload())
 hedl.bind(mod .. " + SHIFT + E",    "Leave",        hedl.dsp.quit())
 

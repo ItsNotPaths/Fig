@@ -4,36 +4,62 @@ The visible desktop. Every piece here is a wweft surface or something one of
 them runs.
 
 ```
-lib/        shared Lua. Installed to ~/.config/wweft/lib/
-surfaces/   one file for each surface. Installed to ~/.config/wweft/
-theme/      the theme engine: render, link, poke. Ours, in Lua
+lib/        shared Lua, required by surfaces
+surfaces/   one file for each surface
+theme/      the theme engine: palette, render, apply, setters
+theme/templates/  {{ token }} config files, omarchy's and ours
+themes/     the palettes, vendored
 vendor/     omarchy's setters, unmodified, for applications we do not ship
 ```
 
-wweft puts the script's own directory, `$XDG_CONFIG_HOME/wweft/?.lua` and
-`~/.config/wweft/?.lua` on `package.path`, so a surface reaches a library with
-`require("lib.theme")` and needs no path of its own.
+Installed by the `tildesh-shell` package:
+
+| From | To |
+| --- | --- |
+| `surfaces/*.lua` | `/etc/skel/.config/wweft/` |
+| `lib/*.lua` | `/etc/skel/.config/wweft/lib/` |
+| `theme/` | `/etc/skel/.config/wweft/theme/` |
+| `themes/` | `/usr/share/tildesh/themes/` |
+| `vendor/setters/`, `vendor/helpers/` | `/usr/share/tildesh/theme-setters/` |
+
+Surfaces go through `/etc/skel` because wweft reads `~/.config/wweft` and
+nowhere else, so the user's copy is the only copy that runs. It also puts the
+script's own directory and `~/.config/wweft/?.lua` on `package.path`, so
+`require("lib.theme")` needs no path of its own.
 
 ## One theme reader, not ten
 
-A surface never parses a palette. It requires `lib/theme.lua`, which turns the
-theme facts on the kipp stream into a table of colours and tells it when they
-change. Adding a surface must not add a second copy of that logic, and
-changing what a palette looks like must touch one file.
+A surface never parses a palette. It requires `lib/theme.lua`, which hands
+back a table of colours and says when they changed. Adding a surface must not
+add a second copy of that, and changing what a palette looks like must touch
+one file.
 
 The same rule holds for anything else more than one surface needs.
 
-## What runs where
+## What happens when a theme is picked
 
-The picker does the work. It renders omarchy's templates, writes the files,
-swaps the current-theme link and runs `vendor/`'s setters, which is what keeps
-a theme written for omarchy working here.
+The picker does the work, in this order.
 
-Then it sends twice. `wweft --send theme` reaches every surface that is up,
-because a named channel is a FIFO at `$XDG_RUNTIME_DIR/wweft-<name>` and a
-surface may listen on four of them beside the kippsrv socket. `RELOAD` on the
-kippsrv socket reaches hedl, whose command channel kippsrv holds.
+1. Build the theme beside the live one and move it into place, so a surface
+   reading a colour sees the old theme or the new one and never half of each.
+   A theme's own files are taken as they are; what it leaves out is rendered
+   from a template.
+2. Poke what we ship: foot by escape sequence, btop by signal, GTK by
+   gsettings.
+3. `wweft --send theme` to every surface that is up.
+4. `RELOAD` on the kippsrv socket, which is how hedl hears about it, because
+   kippsrv holds its command channel.
+5. Run `vendor/`'s setters for everything else.
 
 The signal carries the theme's name and nothing else, so a surface reacting to
-it and a surface starting cold both end up calling `lib/theme.lua` the same
-way. That is what stops a second code path for "I started late".
+it and a surface starting cold both end up in `lib/theme.lua` the same way.
+That is what stops a second code path for "I started late".
+
+## Compatibility
+
+The palettes, the templates and the setters are omarchy's, unmodified, so a
+theme written for omarchy works here and an upstream fix arrives as a diff.
+`vendor/check.sh` reports what has drifted.
+
+Every vendored setter reads `$HOME/.local/state/omarchy/current/theme`. That
+path becomes a link to ours rather than a patch to fifteen files.
