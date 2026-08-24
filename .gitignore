@@ -1,6 +1,6 @@
 docs/
 
-# Populated by download-deps, upstream 
+# Populated by download-deps, upstream.
 /vendor/
 
 # Build output.
@@ -8,3 +8,6 @@ dist/
 
 # The local package repo, built by packaging/build-packages.sh.
 repo/
+
+# The QEMU workflow. This machine's, not the image's.
+/scripts/vm*

@@ -27,8 +27,6 @@ packaging/
 scripts/
   build-host.sh     build the container image
   build-iso.sh      build the ISO into dist/
-  vm.sh             boot the ISO in QEMU, with the radios if you want them
-  vm-selftest.sh    boot it with nobody watching and run the self test
 download-deps.sh    fetch vendor/. Reference trees only, nothing that ships
 ```
 
@@ -91,37 +89,15 @@ The image lands in `dist/tildesh/`.
 
 ## Run it
 
-```sh
-./scripts/vm.sh              # no radios
-./scripts/vm.sh --bt         # plus the MT7925 bluetooth half, over USB
-./scripts/vm.sh --wifi       # plus the MT7925 wifi card, over VFIO
-./scripts/vm.sh --disk       # add a 32G disk for an installed system
-./scripts/vm.sh --serial     # no window. A login on this terminal instead
-```
+The image is a UEFI live ISO. Boot it in any virtual machine that has EFI
+firmware, a GPU device and 4G of memory. hedl needs a GPU: a virtio-vga-gl
+card is the fast path, and a plain VGA card works on llvmpipe.
 
-The window needs one package Arch splits out:
+The live user is `tildesh`, the password is `tildesh`, and tty1 logs itself in
+and starts hedl.
 
-```sh
-pacman -S qemu-system-x86 qemu-ui-gtk edk2-ovmf qemu-hw-display-virtio-vga-gl
-```
-
-`--serial` needs none of it. The image runs a getty on ttyS0, so QEMU with
-`-serial mon:stdio` is a whole test rig: log in, run the self test, read the
-output, with no screen involved.
-
-`scripts/vm-selftest.sh` is that rig with nobody driving it. It boots the
-newest image with no window, logs in over the serial port, runs
-`tildesh-selftest`, prints what it said and powers the machine off. Its exit
-status is the number of failed checks, and the whole console is left in
-`dist/*/console.log`.
-
-`--wifi` gives the card to the guest and takes it from the host until QEMU
-exits, so the script refuses to start while the host's own route goes over it.
-Plug in ethernet first. `--bt` needs nothing: the bluetooth half is a plain USB
-device and comes back on its own.
-
-The live user is `tildesh`, the password is `tildesh`, and tty1 logs in and
-starts sway on its own.
+The image also runs a getty on ttyS0. A machine given a serial console needs
+no window at all: log in there, run the self test, read the output.
 
 ## Looking at kipp
 
