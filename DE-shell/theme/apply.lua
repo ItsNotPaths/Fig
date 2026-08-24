@@ -97,7 +97,6 @@ function M.build(name, into)
 	sh("rm -rf " .. into)
 	sh("mkdir -p " .. into)
 	sh("cp -r " .. from .. "/. " .. into .. "/ 2>/dev/null")
-	sh("rm -rf " .. into .. "/backgrounds")
 
 	local colors = palette.load(into .. "/colors.toml")
 	if not colors then return nil, name .. " has no colors.toml" end

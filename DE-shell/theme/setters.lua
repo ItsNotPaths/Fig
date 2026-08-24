@@ -69,10 +69,27 @@ function M.gtk(c, dir)
 	os.execute(set .. "icon-theme '" .. (icons or "Adwaita") .. "'")
 end
 
+-- A theme with a picture gets swaybg. A theme without one does not: hedl
+-- paints the root in the palette's own background already, so a process whose
+-- whole job is one flat colour is a process for nothing.
+function M.background(c, dir)
+	os.execute("pkill -x swaybg 2>/dev/null")
+
+	local image = popen(("find %s/backgrounds -maxdepth 1 -type f " ..
+		"\\( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' " ..
+		"-o -iname '*.webp' \\) 2>/dev/null | sort"):format(dir))[1]
+	if image then
+		-- fill scales to cover and crops the overflow from the middle, which
+		-- is why the picture is 32:9 and everything narrower still centres.
+		os.execute(("swaybg -i '%s' -m fill >/dev/null 2>&1 &"):format(image))
+	end
+end
+
 function M.all(c, dir)
 	M.foot(c)
 	M.btop()
 	M.gtk(c, dir)
+	M.background(c, dir)
 end
 
 return M

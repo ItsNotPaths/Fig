@@ -1,0 +1,7 @@
+arch-lambda.png
+
+  by lambda.py, https://www.reddit.com/user/atlas-ark/
+
+The original is 3840x2160. The sides here are its own edge columns carried
+out to 7680x2160, so the middle 3840 is untouched and a 16:9 screen filling
+the image sees exactly what was drawn. Anything wider gets more stripe.
