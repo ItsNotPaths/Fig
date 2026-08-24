@@ -39,12 +39,16 @@ function M.export()
 	local cfg = M.current or M.load()
 	if not cfg.size_foot then return end
 
-	-- pixelsize, not size. A font pattern is fontconfig's, where size is
-	-- points and pixelsize is pixels, and there is no px suffix: a pattern
-	-- foot cannot parse leaves it on its own 8pt default. wweft's
-	-- Surface.font is the cell height in pixels, measured, so pixels is
-	-- what both are asked for.
-	local want = ("font=%s:pixelsize=%d\n"):format(cfg.family, cfg.size)
+	-- Two units for one number. wweft sizes a font by its height, ascent
+	-- minus descent, and fontconfig's pixelsize is the em. For the face this
+	-- image ships they are 1.25 apart: unitsPerEm 1000, ascent 965, descent
+	-- -285. So the terminal is asked for four fifths of what the surfaces
+	-- are, and the two come out the same height on screen.
+	--
+	-- pixelsize and not size, and no px suffix: size is points, and a
+	-- pattern foot cannot parse leaves it on its own 8pt default.
+	local em = math.floor(cfg.size * 0.8 + 0.5)
+	local want = ("font=%s:pixelsize=%d\n"):format(cfg.family, em)
 	local at = HOME .. "/.config/foot/size.ini"
 
 	local old = io.open(at)

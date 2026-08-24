@@ -25,7 +25,21 @@ hedl.config({
   -- resize_margin is how close to an edge a super+right-drag has to start for
   -- that edge to be the one that moves. Grab the middle and it is the bottom
   -- right corner, as dwl always did.
-  general = { border_size = 2, resize_margin = 64 },
+  general = { border_size = 2, gaps = 8, resize_margin = 64 },
+
+  -- Only what is named in `translucent` fades, so a picture or a video is
+  -- left alone without having to be listed. A pattern is matched against the
+  -- app id first and then the title.
+  --
+  -- wweft is in `opaque` to say so out loud: a surface it draws is a layer
+  -- surface rather than a window, and opacity is only ever applied to
+  -- windows, so it was never going to fade either way.
+  decoration = {
+    active_opacity   = 0.96,
+    inactive_opacity = 0.88,
+    translucent = { "^foot$" },
+    opaque      = { "^wweft$" },
+  },
 
   colors = colors,
 
