@@ -1,7 +1,7 @@
 docs/
 
 # Populated by download-deps, upstream 
-vendor/
+/vendor/
 
 # Build output.
 dist/
