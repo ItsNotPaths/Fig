@@ -80,10 +80,14 @@ cp -a "$root/packaging/tildesh-defaults/files/." "$stage/tildesh-defaults/"
 
 # The shell. Surfaces and the theme engine are the user's, so they go through
 # /etc/skel; the palettes and the vendored setters are the machine's.
-skel="$stage/tildesh-shell/etc/skel/.config/wweft"
+#
+# Not ~/.config/wweft: that is wweft's own directory, and these are no more
+# wweft's configuration than a script is bash's. wweft is a renderer on PATH.
+skel="$stage/tildesh-shell/etc/skel/.config/tildesh-shell"
 share="$stage/tildesh-shell/usr/share/tildesh"
 mkdir -p "$skel/lib" "$skel/theme" "$share/themes" "$share/theme-setters/helpers"
 cp "$root/DE-shell/surfaces/"*.lua "$skel/"
+cp "$root/DE-shell/shell.lua" "$skel/"
 cp "$root/DE-shell/lib/"*.lua "$skel/lib/"
 cp "$root/DE-shell/theme/"*.lua "$skel/theme/"
 cp -r "$root/DE-shell/theme/templates" "$skel/theme/templates"

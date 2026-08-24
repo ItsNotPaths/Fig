@@ -43,7 +43,7 @@ hedl.on("start", function()
     -- to turn off. swaybg is not started: no theme ships a background yet.
     "swayidle -w timeout 600 'swaylock -f'",
     -- The bar. It reads kippsrv, so it starts after it.
-    "wweft ~/.config/wweft/bar.lua",
+    "wweft ~/.config/tildesh-shell/bar.lua",
     -- The shell. Everything a surface draws comes off its socket, and it
     -- reads hedl over $XDG_RUNTIME_DIR/hedl/kipp rather than being a child.
     "kippsrv ~/.config/kippsrv/kippsrv.lua",
@@ -55,13 +55,19 @@ end)
 hedl.bind(mod .. " + Return",       "Terminal",     hedl.dsp.spawn(term))
 hedl.bind(mod .. " + Q",            "Close window", hedl.dsp.killclient())
 hedl.bind(mod .. " + D",            "What kippsrv says", hedl.dsp.spawn("test-wweft"))
-hedl.bind(mod .. " + SHIFT + T",    "Theme",        hedl.dsp.spawn("wweft ~/.config/wweft/theme-picker.lua"))
+hedl.bind(mod .. " + SHIFT + T",    "Theme",        hedl.dsp.spawn("wweft ~/.config/tildesh-shell/theme-picker.lua"))
 
 -- The bar takes the keyboard while a mode holds and gives it back on Escape.
 -- Nothing here knows what is in a group; the words are all hedl sends.
 hedl.bind(mod .. " + space",        "Bar actions",  hedl.dsp.spawn("wweft --send bar 'mode centre'"))
 hedl.bind(mod .. " + S",            "Bar panels",   hedl.dsp.spawn("wweft --send bar 'mode right'"))
-hedl.bind(mod .. " + SHIFT + C",    "Reload config", hedl.dsp.reload())
+-- Reload. hedl rereads this file, and the surfaces are started again so an
+-- edit to one of them, or to shell.lua, takes hold too. A surface reads its
+-- script once, at startup, so there is nothing else to tell it.
+hedl.bind(mod .. " + SHIFT + R",    "Reload", function()
+  hedl.dsp.reload()()
+  hedl.dsp.spawn("pkill -x wweft; wweft ~/.config/tildesh-shell/bar.lua")()
+end)
 hedl.bind(mod .. " + SHIFT + E",    "Leave",        hedl.dsp.quit())
 
 hedl.bind(mod .. " + J",            "Focus next",    hedl.dsp.focusstack(1))
@@ -83,8 +89,14 @@ hedl.bind(mod .. " + V",            "Float all",    hedl.dsp.setlayout("floating
 hedl.bind(mod .. " + B",            "Monocle",      hedl.dsp.setlayout("monocle"))
 
 for i = 1, 9 do
-  hedl.bind(mod .. " + " .. i,         "Tag " .. i,     hedl.dsp.view(i))
-  hedl.bind(mod .. " + SHIFT + " .. i, "Move to " .. i, hedl.dsp.tag(i))
+  hedl.bind(mod .. " + " .. i, "Tag " .. i, hedl.dsp.view(i))
+  -- Send the window and go with it. hedl.dsp.tag(i) on its own leaves you
+  -- looking at the tag the window just left.
+  hedl.bind(mod .. " + SHIFT + " .. i, "Move to " .. i .. " and follow", function()
+    hedl.dsp.tag(i)()
+    hedl.dsp.view(i)()
+  end)
+  hedl.bind(mod .. " + CTRL + " .. i,  "Also show " .. i, hedl.dsp.toggleview(i))
 end
 
 hedl.bind("XF86MonBrightnessUp",   nil, hedl.dsp.spawn("brightnessctl set +5%"))

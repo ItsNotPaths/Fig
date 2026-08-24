@@ -4,6 +4,10 @@
 # asks the environment rather than being told twice.
 export EDITOR=micro VISUAL=micro
 
+# micro rounds a hex colour to the nearest of 256 without this, and the
+# colourscheme the theme writes is hex.
+export MICRO_TRUECOLOR=1
+
 # tty1 is the session. Anything else is a plain shell.
 #
 # dbus-run-session, not a user service manager: runit has none, and every

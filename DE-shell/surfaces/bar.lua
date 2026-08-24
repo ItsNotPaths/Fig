@@ -24,8 +24,9 @@
 -- and hedl gives the keyboard back when the mode ends, which needs hedl
 -- e94ec64.
 
-local kipp  = require("lib.kipp")
-local theme = require("lib.theme")
+local kipp   = require("lib.kipp")
+local theme  = require("lib.theme")
+local config = require("lib.config")
 
 -- Lua checks the format itself and refuses glibc's %-d, so the leading zero
 -- comes off afterwards, and only the one after the weekday.
@@ -240,7 +241,10 @@ function bar:onDraw(g)
 	fill(g, ends + 1, right_at - 1, DIM)
 end
 
-Surface.font("", 16)
+local cfg = config.load()
+config.export()          -- the bar is the shell's long-lived process
+
+Surface.font(cfg.font, cfg.size)
 Surface.exclusive(1)      -- reserves the row, so it takes no keyboard by default
 Surface.dismiss(false)    -- a bar outlives every focus change
 Surface.layer("top")

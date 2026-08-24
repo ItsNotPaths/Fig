@@ -4,6 +4,7 @@ The visible desktop. Every piece here is a wweft surface or something one of
 them runs.
 
 ```
+shell.lua   what the shell is set to: the font and its size
 lib/        shared Lua, required by surfaces
 surfaces/   one file for each surface
 theme/      the theme engine: palette, render, apply, setters
@@ -16,16 +17,20 @@ Installed by the `tildesh-shell` package:
 
 | From | To |
 | --- | --- |
-| `surfaces/*.lua` | `/etc/skel/.config/wweft/` |
-| `lib/*.lua` | `/etc/skel/.config/wweft/lib/` |
-| `theme/` | `/etc/skel/.config/wweft/theme/` |
+| `surfaces/*.lua`, `shell.lua` | `/etc/skel/.config/tildesh-shell/` |
+| `lib/*.lua` | `/etc/skel/.config/tildesh-shell/lib/` |
+| `theme/` | `/etc/skel/.config/tildesh-shell/theme/` |
 | `themes/` | `/usr/share/tildesh/themes/` |
 | `vendor/setters/`, `vendor/helpers/` | `/usr/share/tildesh/theme-setters/` |
 
-Surfaces go through `/etc/skel` because wweft reads `~/.config/wweft` and
-nowhere else, so the user's copy is the only copy that runs. It also puts the
-script's own directory and `~/.config/wweft/?.lua` on `package.path`, so
-`require("lib.theme")` needs no path of its own.
+Not `~/.config/wweft/`. That is wweft's own directory, and these files are no
+more wweft's configuration than a script is bash's. wweft is a renderer that
+lives on PATH, the way foot does, and the shell is what runs on it.
+
+They go through `/etc/skel` because a surface has to be the user's copy to be
+editable. wweft puts the running script's own directory first on
+`package.path`, so `require("lib.theme")` resolves from wherever the surface
+sits and needs no path of its own.
 
 ## One theme reader, not ten
 

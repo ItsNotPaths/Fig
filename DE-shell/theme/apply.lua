@@ -22,7 +22,7 @@ local M = {home = HOME}
 M.state     = HOME .. "/.local/state/tildesh"
 M.current   = M.state .. "/theme"
 M.dirs      = {HOME .. "/.config/tildesh/themes", "/usr/share/tildesh/themes"}
-M.templates = HOME .. "/.config/wweft/theme/templates"
+M.templates = HOME .. "/.config/tildesh-shell/theme/templates"
 M.setters   = "/usr/share/tildesh/theme-setters"
 M.helpers   = M.setters .. "/helpers"
 M.compat    = HOME .. "/.local/state/omarchy/current"
@@ -134,6 +134,12 @@ function M.apply(name)
 	sh("mkdir -p " .. M.home .. "/.config/hedl")
 	sh("ln -sfn " .. M.current .. "/hedl-colors.lua " ..
 	   M.home .. "/.config/hedl/colors.lua")
+
+	-- micro reads a colourscheme by name from its own directory, so the name
+	-- stays put and the file behind it changes.
+	sh("mkdir -p " .. M.home .. "/.config/micro/colorschemes")
+	sh("ln -sfn " .. M.current .. "/micro.micro " ..
+	   M.home .. "/.config/micro/colorschemes/tildesh.micro")
 
 	M.poke(name, colors)
 	return colors

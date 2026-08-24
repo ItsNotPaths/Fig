@@ -5,8 +5,9 @@
 -- does not have. The colours here are the current theme, so the picker is
 -- already showing you what a theme looks like.
 
-local theme = require("lib.theme")
-local apply = require("theme.apply")
+local theme  = require("lib.theme")
+local config = require("lib.config")
+local apply  = require("theme.apply")
 
 local c = theme.load()
 local FG    = theme.argb(c.foreground)
@@ -71,7 +72,8 @@ function picker:onDraw(g)
 	end
 end
 
-Surface.font("", 16)
+local cfg = config.load()
+Surface.font(cfg.font, cfg.size)
 Surface.border("round", TITLE)
 Surface.layer("overlay")
 Surface.anchor("center")
