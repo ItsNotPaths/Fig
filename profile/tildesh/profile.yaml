@@ -95,6 +95,9 @@ rootfs:
     # says so once for every thread it starts.
     - rtkit
     - dunst
+    # Night light. hyprsunset is Hyprland's; wlsunset drives
+    # wlr-gamma-control-unstable-v1, which hedl creates.
+    - wlsunset
     - grim
     - slurp
     - wl-clipboard

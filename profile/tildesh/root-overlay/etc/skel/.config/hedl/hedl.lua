@@ -39,6 +39,11 @@ hedl.config({
 hedl.on("start", function()
   for _, cmd in ipairs({
     "pipewire", "pipewire-pulse", "wireplumber", "dunst",
+    -- The idle daemon runs so that the bar's stay-awake toggle has something
+    -- to turn off. swaybg is not started: no theme ships a background yet.
+    "swayidle -w timeout 600 'swaylock -f'",
+    -- The bar. It reads kippsrv, so it starts after it.
+    "wweft ~/.config/wweft/bar.lua",
     -- The shell. Everything a surface draws comes off its socket, and it
     -- reads hedl over $XDG_RUNTIME_DIR/hedl/kipp rather than being a child.
     "kippsrv ~/.config/kippsrv/kippsrv.lua",
@@ -51,6 +56,11 @@ hedl.bind(mod .. " + Return",       "Terminal",     hedl.dsp.spawn(term))
 hedl.bind(mod .. " + Q",            "Close window", hedl.dsp.killclient())
 hedl.bind(mod .. " + D",            "What kippsrv says", hedl.dsp.spawn("test-wweft"))
 hedl.bind(mod .. " + SHIFT + T",    "Theme",        hedl.dsp.spawn("wweft ~/.config/wweft/theme-picker.lua"))
+
+-- The bar takes the keyboard while a mode holds and gives it back on Escape.
+-- Nothing here knows what is in a group; the words are all hedl sends.
+hedl.bind(mod .. " + space",        "Bar actions",  hedl.dsp.spawn("wweft --send bar 'mode centre'"))
+hedl.bind(mod .. " + S",            "Bar panels",   hedl.dsp.spawn("wweft --send bar 'mode right'"))
 hedl.bind(mod .. " + SHIFT + C",    "Reload config", hedl.dsp.reload())
 hedl.bind(mod .. " + SHIFT + E",    "Leave",        hedl.dsp.quit())
 
