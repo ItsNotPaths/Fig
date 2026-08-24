@@ -22,6 +22,7 @@ profile/
 DE-shell/
   config.lua        what the shell is set to
   surfaces/         the bar and the theme picker, drawn by wweft
+  bin/              what a surface runs, on PATH
   lib/              the theme engine and the kipp fact store
   themes/           the palettes
   vendor/           omarchy's theme setters, and the NOTICE for them

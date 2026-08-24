@@ -57,8 +57,10 @@ hedl.on("start", function()
   for _, cmd in ipairs({
     "pipewire", "pipewire-pulse", "wireplumber", "dunst",
     -- The idle daemon runs so that the bar's stay-awake toggle has something
-    -- to turn off. swaybg is not started: no theme ships a background yet.
-    "swayidle -w timeout 600 'swaylock -f'",
+    -- to turn off, and starts through the same verb the toggle uses so the
+    -- timeout is written once. swaybg is not started: no theme ships a
+    -- background yet.
+    "bar-actions idle",
     -- The bar. It reads kippsrv, so it starts after it.
     "wweft ~/.config/tildesh-shell/bar.lua",
     -- The shell. Everything a surface draws comes off its socket, and it
@@ -76,8 +78,12 @@ hedl.bind(mod .. " + SHIFT + T",    "Theme",        hedl.dsp.spawn("wweft ~/.con
 
 -- The bar takes the keyboard while a mode holds and gives it back on Escape.
 -- Nothing here knows what is in a group; the words are all hedl sends.
-hedl.bind(mod .. " + space",        "Bar actions",  hedl.dsp.spawn("wweft --send bar 'mode centre'"))
-hedl.bind(mod .. " + S",            "Bar panels",   hedl.dsp.spawn("wweft --send bar 'mode right'"))
+hedl.bind(mod .. " + W",            "Bar actions",  hedl.dsp.spawn("wweft --send bar 'mode centre'"))
+-- Right shift, which is a modifier, so by the time its own key event arrives
+-- xkb has already put SHIFT in the mask. Both spellings are bound rather than
+-- guessing which one the compositor hands over.
+hedl.bind(mod .. " + Shift_R",         "Bar panels", hedl.dsp.spawn("wweft --send bar 'mode right'"))
+hedl.bind(mod .. " + SHIFT + Shift_R", "Bar panels", hedl.dsp.spawn("wweft --send bar 'mode right'"))
 -- Reload. hedl rereads this file, and the surfaces are started again so an
 -- edit to one of them, or to shell.lua, takes hold too. A surface reads its
 -- script once, at startup, so there is nothing else to tell it.

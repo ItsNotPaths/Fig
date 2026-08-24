@@ -86,16 +86,19 @@ cp -a "$root/packaging/tildesh-defaults/files/." "$stage/tildesh-defaults/"
 skel="$stage/tildesh-shell/etc/skel/.config/tildesh-shell"
 share="$stage/tildesh-shell/usr/share/tildesh"
 mkdir -p "$skel/lib" "$share/themes" "$share/theme-setters/helpers"
-# The top of the directory is what a person edits: the config and the
+# The top of the directory is what a person edits: the settings files and the
 # surfaces. Everything under lib/ is code they only open to change how
 # something works.
-cp "$root/DE-shell/config.lua" "$skel/"
+cp "$root/DE-shell/"*.lua "$skel/"
 cp "$root/DE-shell/surfaces/"*.lua "$skel/"
 cp -r "$root/DE-shell/lib/." "$skel/lib/"
 cp -r "$root/DE-shell/themes/." "$share/themes/"
 cp "$root/DE-shell/vendor/setters/"* "$share/theme-setters/"
 cp "$root/DE-shell/vendor/helpers/"* "$share/theme-setters/helpers/"
 cp "$root/DE-shell/vendor/NOTICE" "$share/theme-setters/NOTICE"
+# What the surfaces run. A surface names an intent, so these have to be found
+# by name, which means PATH and not the shell's own directory.
+install -Dm755 "$root/DE-shell/bin/"* -t "$stage/tildesh-shell/usr/bin/"
 chmod +x "$share/theme-setters/"* "$share/theme-setters/helpers/"* 2>/dev/null || true
 
 # ---------------------------------------------------------------- wrap + index

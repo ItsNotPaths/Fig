@@ -14,6 +14,13 @@ return {
 	-- bare number as points, so the file written for it says px.
 	size   = 16,
 
+	-- 12 or 24. The date beside it does not change either way.
+	clock = 12,
+
+	-- The bar sits this many pixels below the top edge, to line up with
+	-- hedl's `gaps`. 0 puts it back against the edge.
+	gap = 8,
+
 	-- Applied once, on a home that has never had a theme picked. After that
 	-- the picker decides and this is ignored.
 	theme = "gruvbox",

@@ -18,7 +18,7 @@
 --
 -- It holds the keyboard only while a mode holds. hedl binds send the word:
 --
---   hedl.bind(mod .. " + space", "Bar", hedl.dsp.spawn("wweft --send bar 'mode centre'"))
+--   hedl.bind(mod .. " + W", "Bar", hedl.dsp.spawn("wweft --send bar 'mode centre'"))
 --   hedl.dsp.spawn("wweft --send bar 'mode right'")
 --
 -- and hedl gives the keyboard back when the mode ends, which needs hedl
@@ -28,12 +28,16 @@ local kipp   = require("lib.kipp")
 local palette = require("lib.palette")
 local config = require("lib.settings")
 
--- Lua checks the format itself and refuses glibc's %-d, so the leading zero
--- comes off afterwards, and only the one after the weekday.
-local CLOCK = "%a %d %b   %H:%M"
+-- Lua checks the format itself and refuses glibc's %-d, so leading zeros come
+-- off afterwards: the one in the date, and the one on a 12 hour clock.
+local CLOCK = {[12] = "%a %d %b   %I:%M %p", [24] = "%a %d %b   %H:%M"}
 
-local function now()
-	return (os.date(CLOCK):gsub("^(%a+) 0", "%1 "))
+local function now(which)
+	local text = (os.date(CLOCK[which] or CLOCK[24]):gsub("^(%a+) 0", "%1 "))
+	-- 07:34 AM reads as a mistake where 09:04 does not, so only the 12 hour
+	-- clock loses the zero on its hour.
+	if which == 12 then text = (text:gsub("   0", "   ")) end
+	return text
 end
 
 local FILL = "·"
@@ -42,39 +46,94 @@ local TAGS = 9
 -- The centre group, in screen order, with the clock as the middle piece. A
 -- row with no command draws and selects and does nothing, which is what a
 -- panel that has not been written yet looks like.
+--
+-- The glyphs are omarchy's own, off the widgets in shell/plugins/bar, so the
+-- desktop reads the same. What runs behind one is not: `bar-actions` names an
+-- intent and decides for itself what the machine has to do about it.
+--
+-- A piece that puts a picker on the screen closes the mode, because slurp
+-- wants the keyboard the bar is holding.
+--
+-- `on` names the toggle a piece stands for. A piece with one is drawn while
+-- the group is closed too, whenever that toggle is on, so a night light left
+-- running is something you can see rather than something to remember.
 local CENTRE = {
-	{icon = "󰔎", run = "pkill -x wlsunset || wlsunset -t 4000 -T 6500"},
-	{icon = "󰅶", run = "pkill -x swayidle || swayidle -w"},
+	{icon = "󰔎", run = "bar-actions nightlight", on = "nightlight"},
+	{icon = "󰢌", run = ""},                            -- reminder, wants a surface
+	{icon = "󰅶", run = "bar-actions stayawake", on = "stayawake"},
 	{icon = "",  clock = true},
-	{icon = "",  run = "grim -g \"$(slurp)\"", close = true},
-	{icon = "󰂛", run = "dunstctl set-paused toggle"},
+	{icon = "󰻂", run = "bar-actions record", on = "recording", close = true},
+	{icon = "",  run = "bar-actions screenshot", close = true},
+	{icon = "󰖐", run = ""},                            -- weather, a panel
 }
-local CLOCK_AT = 3
+local CLOCK_AT = 4
 
--- The right group. None of these panels exist yet.
+-- The right group, in screen order, so notifications end up in the corner. No
+-- panel behind any of these yet except the last.
+--
+-- Its label is not fixed: [!] while something is unread, [N] once everything
+-- has been read, which is the whole of what the bar says about a notification.
+-- Reading one means opening the panel, so the bar never has to draw a body.
 local RIGHT = {
 	{icon = "󰅀", run = ""},
 	{icon = "󰂯", run = ""},
 	{icon = "󰤨", run = ""},
 	{icon = "󰕾", run = ""},
 	{icon = "󰍹", run = ""},
+	{notif = true, run = "wweft ~/.config/tildesh-shell/notifications.lua",
+	 close = true},
 }
 
 palette.load()
-local BASE = palette.style("foreground", "background")
+-- Slot 0, so the few pixels past the last cell -- the screen is not a whole
+-- number of cells wide -- are the bar's own background and not wweft's.
+local BASE = palette.style("foreground", "background", nil, Style.base)
 local DIM  = palette.style("dark_foreground", "background")
 local ON   = palette.style("background", "accent")
+local LIT  = palette.style("accent", "background")
+
+-- Which toggles are on. bar-actions writes it and moves it into place, and
+-- wweft watches the directory, so the file does not have to exist yet.
+local STATE = (os.getenv("XDG_RUNTIME_DIR") or "/tmp") .. "/tildesh"
+local INDICATORS = STATE .. "/indicators"
+
+local cfg = config.load()
 
 local bar = {
 	facts = kipp.store(),
 	mon   = nil,        -- the monitor, from the focus fact
-	clock = now(),
+	clock = now(cfg.clock),
 	mode  = nil,        -- nil, "centre" or "right"
 	sel   = 1,
+	on    = {},         -- the toggles that are on, by name
+	unread = 0,         -- notif facts nobody has read
 }
 
+-- kippsrv owns the notification bus name and publishes one fact for each live
+-- notification. The bar only counts them.
+function bar:count()
+	local n = 0
+	for f in self.facts:each("notif") do
+		if f.attr.read ~= "1" then n = n + 1 end
+	end
+	self.unread = n
+end
+
+function bar:read()
+	local out, f = {}, io.open(INDICATORS)
+	if f then
+		for word in f:read("a"):gmatch("%S+") do out[word] = true end
+		f:close()
+	end
+	self.on = out
+end
+
+function bar:onChange(path)
+	self:read()
+end
+
 function bar:onTick()
-	self.clock = now()
+	self.clock = now(cfg.clock)
 end
 
 -- ------------------------------------------------------------- the modes
@@ -83,17 +142,20 @@ function bar:group()
 	return self.mode == "right" and RIGHT or CENTRE
 end
 
--- The clock is the only piece whose label is not fixed.
+-- Two pieces have a label rather than an icon, and both change under it.
 function bar:label(items, i)
 	if items[i].clock then return " " .. self.clock .. " " end
+	if items[i].notif then return self.unread > 0 and " [!] " or " [N] " end
 	return " " .. items[i].icon .. " "
 end
 
 function bar:enter(mode)
 	self.mode = mode
-	-- The first piece, not the clock. Landing on the clock means the first
-	-- Return does nothing, since the clock is a label rather than an action.
-	self.sel = 1
+	-- The centre opens on its first piece, not the clock: landing on the clock
+	-- means the first Return does nothing, since it is a label. The right opens
+	-- on its last, because that is notifications, and notifications are what
+	-- the group is usually opened for.
+	self.sel = mode == "right" and #RIGHT or 1
 	Surface.keyboard(true)
 end
 
@@ -146,9 +208,12 @@ function bar:onMessage(line)
 		return
 	end
 
-	if self.facts:feed(line) == "focus" then
+	local kind = self.facts:feed(line)
+	if kind == "focus" then
 		local fact = self.facts:get("focus")
 		self.mon = fact and fact.subj[1]
+	elseif kind == "notif" then
+		self:count()
 	end
 end
 
@@ -190,21 +255,36 @@ local function fill(g, from, to, style)
 	end
 end
 
+-- Everything while the group is open. Closed, the clock and whatever is on.
+function bar:shown(items, i, mode)
+	if self.mode == mode or items[i].clock then return true end
+	return items[i].on ~= nil and self.on[items[i].on] == true
+end
+
+function bar:style(items, i, mode)
+	if self.mode ~= mode then return items[i].clock and BASE or LIT end
+	if self.sel == i then return ON end
+	return mode == "centre" and BASE or DIM
+end
+
 -- A run of pieces from x, lit where the selection is. Answers the column it
 -- ended on.
 function bar:band(g, items, from, to, x, mode)
 	for i = from, to do
-		local text = self:label(items, i)
-		local lit = self.mode == mode and self.sel == i
-		g.text(x, 0, text, lit and ON or (mode == "centre" and BASE or DIM))
-		x = x + Grid.width(text)
+		if self:shown(items, i, mode) then
+			local text = self:label(items, i)
+			g.text(x, 0, text, self:style(items, i, mode))
+			x = x + Grid.width(text)
+		end
 	end
 	return x
 end
 
-function bar:width(items, from, to)
+function bar:width(items, from, to, mode)
 	local w = 0
-	for i = from, to do w = w + Grid.width(self:label(items, i)) end
+	for i = from, to do
+		if self:shown(items, i, mode) then w = w + Grid.width(self:label(items, i)) end
+	end
 	return w
 end
 
@@ -221,20 +301,19 @@ function bar:onDraw(g)
 
 	-- The clock is placed on its own width, so opening the group does not
 	-- shove it sideways: the glyphs grow outwards from a fixed centre.
-	local open = self.mode == "centre"
 	local clock_w = Grid.width(self:label(CENTRE, CLOCK_AT))
 	local clock_at = (g.cols - clock_w) // 2
 
-	local left = open and self:width(CENTRE, 1, CLOCK_AT - 1) or 0
+	local left = self:width(CENTRE, 1, CLOCK_AT - 1, "centre")
 	local from = math.max(clock_at - left, x + 1)
 
-	if open then self:band(g, CENTRE, 1, CLOCK_AT - 1, from, "centre") end
+	self:band(g, CENTRE, 1, CLOCK_AT - 1, from, "centre")
 	local ends = self:band(g, CENTRE, CLOCK_AT, CLOCK_AT, clock_at, "centre")
-	if open then ends = self:band(g, CENTRE, CLOCK_AT + 1, #CENTRE, ends, "centre") end
+	ends = self:band(g, CENTRE, CLOCK_AT + 1, #CENTRE, ends, "centre")
 
 	local right_at = g.cols - 1
 	if self.mode == "right" then
-		right_at = math.max(g.cols - self:width(RIGHT, 1, #RIGHT) - 1, ends + 1)
+		right_at = math.max(g.cols - self:width(RIGHT, 1, #RIGHT, "right") - 1, ends + 1)
 		self:band(g, RIGHT, 1, #RIGHT, right_at, "right")
 	end
 
@@ -243,7 +322,6 @@ function bar:onDraw(g)
 	fill(g, ends + 1, right_at - 1, DIM)
 end
 
-local cfg = config.load()
 config.export()          -- the bar is the shell's long-lived process
 
 -- A home that has never had a theme picked has no palette, no foot colours
@@ -259,6 +337,9 @@ end
 
 Surface.font(cfg.font, cfg.size)
 Surface.exclusive(1)      -- reserves the row, so it takes no keyboard by default
+-- The gap above the bar, so it lines up with hedl's window gaps. Set gap = 0
+-- in config.lua to put it back against the edge.
+Surface.margin(cfg.gap, 0, 0, 0)
 Surface.dismiss(false)    -- a bar outlives every focus change
 Surface.layer("top")
 Surface.anchor("top")
@@ -266,5 +347,8 @@ Surface.every(1000)
 Surface.listen(kipp.socket)
 Surface.listen("theme")
 Surface.listen("bar")
+os.execute("mkdir -p " .. STATE)
+Surface.watch(INDICATORS)
 Surface.window(0, 1)      -- 0 fills the axis
+bar:read()
 Surface.run(bar)

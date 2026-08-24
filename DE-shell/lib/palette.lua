@@ -25,9 +25,17 @@ end
 -- cells already drawn in that id repaint themselves.
 local roles = {}
 
-function M.style(fg, bg, alpha)
+-- `id` rewrites a slot instead of taking a new one. wweft paints whatever the
+-- cells never cover -- the strip past the last cell on an axis that fills the
+-- screen -- from slot 0, so a surface that fills one has to say what slot 0 is
+-- or it gets wweft's own grey down the edge.
+function M.style(fg, bg, alpha, id)
 	local c = M.palette or M.load()
-	local id = Style and Style.define(M.argb(c[fg] or fg), M.argb(c[bg] or bg, alpha)) or 0
+	if Style then
+		id = Style.define(M.argb(c[fg] or fg), M.argb(c[bg] or bg, alpha), id)
+	else
+		id = id or 0
+	end
 	roles[id] = {fg, bg, alpha}
 	return id
 end

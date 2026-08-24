@@ -1,0 +1,168 @@
+#!/bin/bash
+# The bar's centre group, one verb each.
+#
+# These were spelled out as commands in the surface's glyph table, which put
+# the operating system's names in the drawing layer. They live here so the
+# surface names an intent and this file decides what runs it.
+#
+# Surface.spawn never blocks and never reports, so anything with a step after
+# it -- pick a region, then capture, then copy -- has to be a script and not a
+# table entry.
+
+set -u
+
+PICTURES="${XDG_PICTURES_DIR:-$HOME/Pictures}"
+VIDEOS="${XDG_VIDEOS_DIR:-$HOME/Videos}"
+STATE="${XDG_RUNTIME_DIR:-/tmp}/tildesh"
+
+# The lock is on a timeout, and the stay-awake toggle turns the daemon off, so
+# both need the same line. It is written once, here, and hedl's start hook
+# calls the verb rather than repeating it.
+IDLE=(swayidle -w timeout 600 "swaylock -f")
+
+# pkill and pgrep match a process name truncated to 15 characters, and this
+# one is 19, so -x can never match it. -f matches the command line instead,
+# which is what the anchor is for.
+GSR='^gpu-screen-recorder'
+
+stamp() { date +%Y-%m-%d_%H-%M-%S; }
+
+# A notification that carries what opens it. kippsrv reads the x-kipp-exec hint
+# and publishes it, and the panel runs it on Return. The spec's own answer needs
+# the sender to still be running, and this one has exited long before then.
+say() {
+	local open=$1; shift
+	notify-send --hint=string:x-kipp-exec:"$open" "$@"
+}
+
+# A region, or nothing. A picker already up is itself the cancel, so a second
+# press closes it instead of stacking another on top.
+region() {
+	pkill -x slurp && return 1
+	slurp
+}
+
+# What the bar draws while its group is closed: one word for each toggle that
+# is on, so a night light nobody can see is not left running. Written beside
+# the target and moved over it, because the bar watches the directory.
+indicators() {
+	mkdir -p "$STATE"
+	{
+		pgrep -x wlsunset >/dev/null && echo nightlight
+		# Staying awake is the idle daemon being off, not on.
+		pgrep -x swayidle >/dev/null || echo stayawake
+		pgrep -f "$GSR" >/dev/null && echo recording
+	} >"$STATE/indicators.new"
+	mv "$STATE/indicators.new" "$STATE/indicators"
+}
+
+idle() { setsid -f "${IDLE[@]}"; indicators; }
+
+# Both temperatures, because wlsunset is a sunset scheduler and this is a
+# switch. Left alone it works out whether it is night where it thinks it is,
+# decides it is daytime and warms nothing. Pinning the high temperature one
+# kelvin above the low one makes every mode the same 4000K -- and it has to be
+# one above, not equal, or it exits with "high temp must be higher than low".
+nightlight() {
+	pkill -x wlsunset || setsid -f wlsunset -t 4000 -T 4001
+	indicators
+}
+
+stayawake() { pkill -x swayidle || idle; indicators; }
+
+
+screenshot() {
+	local sel out
+	sel=$(region) && [[ -n $sel ]] || return 0
+	mkdir -p "$PICTURES"
+	out="$PICTURES/screenshot-$(stamp).png"
+	grim -g "$sel" "$out" || return 1
+	wl-copy --type image/png <"$out"
+	say "satty -f $out" "Screenshot saved" "${out##*/}"
+}
+
+# The glyph. One press stops what is running, and otherwise asks what to
+# record. gpu-screen-recorder writes its container on SIGINT, so a stop that
+# kills it any harder loses the recording.
+record() {
+	local out n=0
+	if pkill -INT -f "$GSR"; then
+		# SIGINT is what makes it write the container, so the file is not
+		# finished until the process is gone.
+		while pgrep -f "$GSR" >/dev/null && ((n++ < 50)); do sleep 0.1; done
+		out=$(cat "$STATE/recording" 2>/dev/null)
+		rm -f "$STATE/recording" "$STATE/capture-target"
+		indicators
+		say "mpv $out" "Recording saved" "${out##*/}"
+		return 0
+	fi
+	setsid -f wweft "$HOME/.config/tildesh-shell/record.lua"
+}
+
+# Start one, as the popup asked for it.
+#
+#   capture <none|system|mic> <mon:NAME|win:ID>...
+#
+# Monitors are one gsr source each and go straight to the compositor. A window
+# has to go through the portal, and the portal asks its chooser which window,
+# so the answer is left where capture-chooser will find it.
+capture() {
+	local audio=${1:-none} out win="" mons="" t
+	shift || true
+
+	for t in "$@"; do
+		case "$t" in
+		win:*) win="${t#win:}" ;;
+		mon:*) mons="${mons:+$mons|}monitor:${t#mon:}" ;;
+		esac
+	done
+	[[ -n $win || -n $mons ]] || return 0
+
+	mkdir -p "$VIDEOS" "$STATE"
+	out="$VIDEOS/screenrecording-$(stamp).mp4"
+
+	# A machine with no video encoder is a VM, and a recording that silently
+	# does not happen there is worse than a slow one.
+	local args=(-o "$out" -f 60 -k auto -fallback-cpu-encoding yes)
+	case "$audio" in
+	system) args+=(-a default_output) ;;
+	mic)    args+=(-a default_input) ;;
+	esac
+
+	if [[ -n $win ]]; then
+		printf 'Window: %s\n' "$win" >"$STATE/capture-target"
+		args+=(-w portal -restore-portal-session no)
+	else
+		args+=(-w "$mons")
+	fi
+
+	local log="$STATE/recording.log" n=0 pid
+	printf '%s\n' "$out" >"$STATE/recording"
+	rm -f "$out"
+
+	# --wait, so the pid outlives the fork and this can ask whether it is still
+	# alive. Asking pgrep instead would tie the answer to how the name matches.
+	setsid --wait gpu-screen-recorder "${args[@]}" 2>"$log" &
+	pid=$!
+
+	# It writes the file once it has an encoder. Gone before that and it never
+	# started, and saying so beats a toast for a recording that is not running.
+	while ((n++ < 25)); do
+		[[ -s $out ]] && { indicators; say "mpv $out" "Recording" "${out##*/}"; return 0; }
+		kill -0 "$pid" 2>/dev/null || break
+		sleep 0.2
+	done
+	rm -f "$STATE/recording"
+	indicators
+	notify-send -u critical "Recording failed" "$(tail -n2 "$log" 2>/dev/null)"
+}
+
+case "${1:-}" in
+capture) shift; capture "$@" ;;
+idle | indicators | nightlight | stayawake | screenshot | record) "$1" ;;
+*)
+	echo "usage: bar-actions <idle|nightlight|stayawake|screenshot|record>" >&2
+	echo "       bar-actions capture <none|system|mic> <mon:NAME|win:ID>..." >&2
+	exit 1
+	;;
+esac

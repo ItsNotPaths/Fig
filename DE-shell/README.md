@@ -5,7 +5,9 @@ them runs.
 
 ```
 config.lua        what you set: the typeface, its size, and the first theme
+record.lua        what the record popup offers, and where the file lands
 surfaces/         one file for each surface. Each one draws
+bin/              what a surface runs, and kippnotif. On PATH, not beside it
 lib/              code. Nothing here draws and nothing here is a setting
   settings.lua      reads config.lua
   palette.lua       the colours now, and when they changed
@@ -19,8 +21,9 @@ Installed by the `tildesh-shell` package:
 
 | From | To |
 | --- | --- |
-| `config.lua`, `surfaces/*.lua` | `/etc/skel/.config/tildesh-shell/` |
+| `config.lua`, `record.lua`, `surfaces/*.lua` | `/etc/skel/.config/tildesh-shell/` |
 | `lib/` | `/etc/skel/.config/tildesh-shell/lib/` |
+| `bin/*` | `/usr/bin/` |
 | `themes/` | `/usr/share/tildesh/themes/` |
 | `vendor/setters/` | `/usr/share/tildesh/theme-setters/` |
 | `vendor/helpers/` | `/usr/share/tildesh/theme-setters/helpers/` |

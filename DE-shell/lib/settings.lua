@@ -6,7 +6,8 @@ local M = {}
 local HOME = os.getenv("HOME") or ""
 local PATH = HOME .. "/.config/tildesh-shell/config.lua"
 
-local DEFAULT = {font = "", family = "monospace", size = 16, size_foot = true}
+local DEFAULT = {font = "", family = "monospace", size = 16, size_foot = true,
+                 clock = 12, gap = 8}
 
 function M.load()
 	local chunk, why = loadfile(PATH)
