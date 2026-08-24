@@ -91,7 +91,9 @@ end
 
 function bar:enter(mode)
 	self.mode = mode
-	self.sel = mode == "centre" and CLOCK_AT or 1
+	-- The first piece, not the clock. Landing on the clock means the first
+	-- Return does nothing, since the clock is a label rather than an action.
+	self.sel = 1
 	Surface.keyboard(true)
 end
 
