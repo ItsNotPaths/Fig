@@ -14,10 +14,10 @@ local term = "foot"
 local ok, colors = pcall(require, "colors")
 if not ok then
   colors = {
-    focus  = "#7aa2f7",
-    border = "#292e42",
-    urgent = "#f7768e",
-    root   = "#1a1b26",
+    focus  = "#7daea3",
+    border = "#665c54",
+    urgent = "#ea6962",
+    root   = "#282828",
   }
 end
 

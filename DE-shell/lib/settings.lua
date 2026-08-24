@@ -39,7 +39,10 @@ function M.export()
 	local cfg = M.current or M.load()
 	if not cfg.size_foot then return end
 
-	local want = ("font=%s:size=%d\n"):format(cfg.family, cfg.size)
+	-- px, not points. foot reads a bare size as points, so 16 there is about
+	-- 21 pixels tall and everything the shell draws looks small beside it.
+	-- wweft's Surface.font takes pixels, so pixels is what both are told.
+	local want = ("font=%s:size=%dpx\n"):format(cfg.family, cfg.size)
 	local at = HOME .. "/.config/foot/size.ini"
 
 	local old = io.open(at)

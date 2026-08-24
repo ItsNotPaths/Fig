@@ -244,6 +244,17 @@ end
 local cfg = config.load()
 config.export()          -- the bar is the shell's long-lived process
 
+-- A home that has never had a theme picked has no palette, no foot colours
+-- and no micro colourscheme. The shell themes itself once rather than
+-- leaving everything on its built-in fallbacks. Loaded only when it is
+-- needed, because the engine is no use to a bar otherwise.
+local applied = io.open(os.getenv("HOME") .. "/.local/state/tildesh/theme/tildesh.lua")
+if applied then
+	applied:close()
+else
+	require("lib.theme.apply").apply(cfg.theme)
+end
+
 Surface.font(cfg.font, cfg.size)
 Surface.exclusive(1)      -- reserves the row, so it takes no keyboard by default
 Surface.dismiss(false)    -- a bar outlives every focus change

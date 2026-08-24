@@ -47,8 +47,9 @@ function M.load()
 	if not ok or type(t) ~= "table" then
 		-- Enough to see the surface and read what is on it. A theme that
 		-- will not load is a bug to see, not a black screen to guess at.
-		t = {mode = "dark", background = "#1a1b26", foreground = "#c0caf5",
-		     accent = "#7aa2f7", muted = "#565f89", red = "#f7768e"}
+		t = {mode = "dark", background = "#282828", foreground = "#d4be98",
+		     accent = "#7daea3", muted = "#665c54", dark_foreground = "#7c6f64",
+		     red = "#ea6962", lighter_background = "#3c3836"}
 	end
 
 	t.argb = M.argb
