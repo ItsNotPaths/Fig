@@ -137,3 +137,31 @@ loop: build hedl in its own tree and point at it.
 PATH=../hedl-wm:$PATH \
     profile/tildesh/root-overlay/usr/local/bin/tildesh-selftest
 ```
+
+## Super special thanks
+
+This image is downstream of other people's work in ways a licence file does not
+cover.
+
+**[omarchy](https://omarchy.org/), and DHH.** The palettes, the templates and
+the theme setters are omarchy's, vendored unmodified, so a theme written for
+omarchy works here and an upstream fix arrives as a diff. The bar's glyphs are
+off its widgets, its weather panel is where our WMO code table came from, and
+`menu.lua` is its menu layout with our own commands behind it. What we took
+most is a claim: that a Linux desktop can be opinionated, finished, and pretty
+on the first boot rather than the fiftieth.
+
+**[suckless](https://suckless.org/), and dwm and dmenu.** `lib/picker.lua` is
+dmenu with more than one list behind it, and it is a small file only because
+dmenu settled the hard question first: lines in, one line out, and the program
+that asked decides what any of it meant. Half this repo is that idea wearing
+different hats.
+
+**[dwl](https://codeberg.org/dwl/dwl), and Devin J. Pohly and its
+contributors.** hedl is a dwl fork. dwl did the part nobody thanks anybody
+for, which is dwm's model on wlroots without the layers in between, and left a
+window manager small enough that adding a Lua config and a kipp publisher was
+an afternoon rather than a project.
+
+Everything of theirs is under their own licence, and the vendored files carry
+their notices. Anything wrong here is ours.
