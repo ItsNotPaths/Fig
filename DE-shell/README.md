@@ -26,6 +26,7 @@ Installed by the `tildesh-shell` package:
 | `config.lua`, `surfaces/*.lua` | `/etc/skel/.config/tildesh-shell/` |
 | `lib/` | `/etc/skel/.config/tildesh-shell/lib/` |
 | `lists/` | `/etc/skel/.config/tildesh-shell/lists/` |
+| `wm-bind-parsers/` | `/etc/skel/.config/tildesh-shell/wm-bind-parsers/` |
 | `bin/*` | `/usr/bin/` |
 | `themes/` | `/usr/share/tildesh/themes/` |
 | `vendor/setters/` | `/usr/share/tildesh/theme-setters/` |

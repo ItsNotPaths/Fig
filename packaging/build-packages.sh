@@ -97,6 +97,11 @@ cp "$root/DE-shell/surfaces/"*.lua "$skel/"
 mkdir -p "$skel/lists"
 cp "$root/DE-shell/lists/"*.lua "$skel/lists/"
 cp -r "$root/DE-shell/lib/." "$skel/lib/"
+# One file for each window manager, naming its keys. Beside the surfaces
+# rather than under lib/, because swapping the window manager is swapping one
+# of these and a person has to be able to find it.
+mkdir -p "$skel/wm-bind-parsers"
+cp "$root/DE-shell/wm-bind-parsers/"*.lua "$skel/wm-bind-parsers/"
 cp -r "$root/DE-shell/themes/." "$share/themes/"
 cp "$root/DE-shell/vendor/setters/"* "$share/theme-setters/"
 cp "$root/DE-shell/vendor/helpers/"* "$share/theme-setters/helpers/"

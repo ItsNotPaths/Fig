@@ -75,6 +75,8 @@ hedl.bind(mod .. " + Return",       "Terminal",     hedl.dsp.spawn(term))
 hedl.bind(mod .. " + Q",            "Close window", hedl.dsp.killclient())
 hedl.bind(mod .. " + D",            "Run",          hedl.dsp.spawn("wweft ~/.config/tildesh-shell/apps.lua"))
 hedl.bind(mod .. " + SHIFT + D",    "What kippsrv says", hedl.dsp.spawn("test-wweft"))
+-- What every key does, off the binds hedl publishes. This one included.
+hedl.bind(mod .. " + K",            "Keys",         hedl.dsp.spawn("wweft ~/.config/tildesh-shell/keys.lua"))
 hedl.bind(mod .. " + SHIFT + T",    "Theme",        hedl.dsp.spawn("wweft ~/.config/tildesh-shell/theme-picker.lua"))
 
 -- The bar takes the keyboard while a mode holds and gives it back on Escape.
@@ -95,7 +97,7 @@ end)
 hedl.bind(mod .. " + SHIFT + E",    "Leave",        hedl.dsp.quit())
 
 hedl.bind(mod .. " + J",            "Focus next",    hedl.dsp.focusstack(1))
-hedl.bind(mod .. " + K",            "Focus prev",    hedl.dsp.focusstack(-1))
+-- K opens the key sheet, so the other half of this pair is the arrows below.
 -- The same two under the arrows. Unbound, they reach the terminal instead and
 -- it prints the tail of the escape the arrow sent.
 hedl.bind(mod .. " + Right",        "Focus next",    hedl.dsp.focusstack(1))
