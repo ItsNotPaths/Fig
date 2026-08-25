@@ -96,6 +96,8 @@ palette.load()
 local BASE = palette.style("foreground", "background", nil, Style.base)
 local DIM  = palette.style("dark_foreground", "background")
 local ON   = palette.style("background", "accent")
+-- The highlight box with the glyph washed out, for a toggle that is off.
+local OFF  = palette.style("muted", "accent")
 local LIT  = palette.style("accent", "background")
 
 -- Which toggles are on. bar-actions writes it and moves it into place, and
@@ -266,9 +268,16 @@ function bar:shown(items, i, mode)
 	return items[i].on ~= nil and self.on[items[i].on] == true
 end
 
+-- A toggle says which way it is set wherever it is drawn: lit while it is on,
+-- and inside the highlight box, a glyph at full contrast against one washed
+-- out. A piece that is not a toggle has no state to be in and stays plain.
 function bar:style(items, i, mode)
-	if self.mode ~= mode then return items[i].clock and BASE or LIT end
-	if self.sel == i then return ON end
+	local item = items[i]
+	local toggle = item.on ~= nil and self.on[item.on] == true
+
+	if self.mode ~= mode then return item.clock and BASE or LIT end
+	if self.sel == i then return item.on and not toggle and OFF or ON end
+	if toggle then return LIT end
 	return mode == "centre" and BASE or DIM
 end
 
