@@ -1,0 +1,104 @@
+#!/bin/bash
+# What the machine is on, what else is in the air, and what to do about it.
+#
+#   net-status                  the status line and whether the radio is on
+#   net-status networks         one line for each network in range
+#   net-status radio <on|off>
+#   net-status act <connect|disconnect|forget> <ssid>
+#   net-status join <ssid>      in a terminal, where a password can be typed
+#
+# nmcli -t escapes a colon inside a value as `\:`, so splitting on a bare
+# colon is wrong. Each value's escapes are turned into a byte no value holds,
+# the line is split, and the byte is turned back. kippsrv's adapter does the
+# same thing for the same reason.
+
+set -uo pipefail
+
+SEP=$'\001'
+unesc() { sed "s/\\\\:/$SEP/g"; }
+
+# A band is more use than a frequency, and it is the only reason anyone reads
+# one.
+band() {
+	local mhz=${1%% *}
+	[ -n "$mhz" ] && [ "$mhz" -ge 4000 ] 2>/dev/null && echo "5 GHz" && return
+	[ -n "$mhz" ] && [ "$mhz" -gt 0 ] 2>/dev/null && echo "2.4 GHz"
+}
+
+status() {
+	local type state name detail="" mhz rate
+
+	# --rescan no: this is the line at the top of a popup, and it may not wait
+	# for the air to be swept.
+	IFS=: read -r type state name < <(
+		nmcli -t -f TYPE,STATE,CONNECTION device status 2>/dev/null | unesc |
+			awk -F: '$2 == "connected" && ($1 == "wifi" || $1 == "ethernet")' |
+			head -1)
+	name=${name//$SEP/:}
+
+	if [ "${type:-}" = wifi ]; then
+		IFS=$'\t' read -r rate mhz < <(
+			nmcli -t -f ACTIVE,RATE,FREQ device wifi list --rescan no 2>/dev/null |
+				unesc | awk -F: '$1 == "yes" {print $2 "\t" $3; exit}')
+		detail=$(band "${mhz:-}")
+		[ -n "${rate:-}" ] && detail="${detail:+$detail · }$rate"
+	elif [ "${type:-}" = ethernet ]; then
+		detail="wired"
+	fi
+
+	printf 'status\t%s\t%s\n' "${name:-offline}" "$detail"
+	printf 'radio\t%s\n' "$([ "$(nmcli radio wifi 2>/dev/null)" = enabled ] && echo on || echo off)"
+}
+
+# One line for each name in the air, strongest first. A network answers on
+# several channels and every one of them is a row, so they are folded: the
+# strongest signal wins, and being connected on any of them is being connected.
+networks() {
+	local saved
+	saved=$(nmcli -t -f NAME,TYPE connection show 2>/dev/null | unesc |
+		awk -F: '$2 ~ /wireless/ {print $1}')
+
+	nmcli -t -f ACTIVE,SSID,SIGNAL,SECURITY device wifi list 2>/dev/null | unesc |
+		awk -F: -v saved="$saved" -v sep="$SEP" '
+		BEGIN { n = split(saved, rows, "\n"); for (i = 1; i <= n; i++) known[rows[i]] = 1 }
+		{
+			ssid = $2
+			gsub(sep, ":", ssid)
+			if (ssid == "") next          # hidden: nothing to show and nothing to join
+			if (!($2 in best) || $3 + 0 > best[$2]) { best[$2] = $3 + 0; sec[$2] = $4 }
+			if ($1 == "yes") live[$2] = 1
+			name[$2] = ssid
+		}
+		END {
+			for (s in best) {
+				kind = live[s] ? "active" : (known[name[s]] ? "saved" : (sec[s] == "" ? "open" : "secured"))
+				printf "net\t%s\t%d\t%s\n", name[s], best[s], kind
+			}
+		}' | sort -t$'\t' -k3,3nr -k2,2f
+}
+
+case "${1:-}" in
+networks) networks ;;
+radio)    nmcli radio wifi "$2" ;;
+act)
+	case "$2" in
+	# A saved network comes up by profile. One that was never saved has no
+	# profile to raise, so it is joined by name instead.
+	connect)    nmcli connection up id "$3" || nmcli device wifi connect "$3" ;;
+	disconnect) nmcli connection down id "$3" ;;
+	forget)     nmcli connection delete id "$3" ;;
+	esac
+	;;
+# Joining stops to ask for a password. A terminal is somewhere that question
+# can be seen and answered; a surface the bar spawned is not.
+join)
+	foot -e bash -c 'nmcli --ask device wifi connect "$1"
+	                 read -rsn1 -p "Press a key to close."' _ "$2"
+	;;
+"") status ;;
+*)
+	echo "usage: net-status [networks | radio <on|off> |" >&2
+	echo "                   act <connect|disconnect|forget> <ssid> | join <ssid>]" >&2
+	exit 1
+	;;
+esac
