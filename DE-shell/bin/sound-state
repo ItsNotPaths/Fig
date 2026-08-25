@@ -1,0 +1,55 @@
+#!/bin/bash
+# What is playing, and the three things the sound popup can do about it.
+#
+#   sound-state                       the master, the outputs, and each stream
+#   sound-state volume <target> <pct>
+#   sound-state mute   <target> <0|1>
+#   sound-state output <sink>
+#
+# A target is @DEFAULT_SINK@ or a stream index, so one verb covers the master
+# and an application alike. pactl speaks JSON and jq reads it, so nothing here
+# parses a drawn tree.
+#
+# The popup reads this once, when it opens, and then moves its own numbers and
+# spawns a verb. Reading back after every key press would put a fork between
+# the key and the bar moving, which is the lag the shell is built to avoid.
+
+set -uo pipefail
+
+# A sink carries one volume per channel. They move together in practice and a
+# bar draws one number, so the first channel speaks for all.
+PCT='(.volume | to_entries | .[0].value.value_percent // "0%" | rtrimstr("%") | tonumber)'
+
+read_state() {
+	local default
+	default=$(pactl get-default-sink 2>/dev/null)
+
+	pactl -f json list sinks 2>/dev/null | jq -r --arg d "$default" "
+		(.[] | select(.name == \$d) |
+			\"master\t\(${PCT})\t\(if .mute then 1 else 0 end)\"),
+		(.[] |
+			\"sink\t\(.name)\t\((.description // .name) | gsub(\"\t\"; \" \"))\t\(if .name == \$d then 1 else 0 end)\")
+	"
+
+	pactl -f json list sink-inputs 2>/dev/null | jq -r "
+		.[] | \"app\t\(.index)\t\((.properties[\"application.name\"] //
+			.properties[\"media.name\"] // \"audio\") | gsub(\"\t\"; \" \"))\t\(${PCT})\t\(if .mute then 1 else 0 end)\"
+	"
+}
+
+# The master and a stream are the same verb with a different noun. Which noun
+# is this file's business, and the popup names neither.
+noun() {
+	[ "$1" = "@DEFAULT_SINK@" ] && printf 'sink' || printf 'sink-input'
+}
+
+case "${1:-}" in
+volume) pactl "set-$(noun "$2")-volume" "$2" "$3%" ;;
+mute)   pactl "set-$(noun "$2")-mute" "$2" "$3" ;;
+output) pactl set-default-sink "$2" ;;
+"")     read_state ;;
+*)
+	echo "usage: sound-state [volume <target> <pct> | mute <target> <0|1> | output <sink>]" >&2
+	exit 1
+	;;
+esac
