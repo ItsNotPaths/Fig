@@ -75,6 +75,8 @@ hedl.bind(mod .. " + Return",       "Terminal",     hedl.dsp.spawn(term))
 hedl.bind(mod .. " + Q",            "Close window", hedl.dsp.killclient())
 hedl.bind(mod .. " + D",            "Run",          hedl.dsp.spawn("wweft ~/.config/tildesh-shell/apps.lua"))
 hedl.bind(mod .. " + SHIFT + D",    "What kippsrv says", hedl.dsp.spawn("test-wweft"))
+-- Everything the desktop can be asked to do. omarchy puts this on SUPER+space.
+hedl.bind(mod .. " + A",            "Menu",         hedl.dsp.spawn("wweft ~/.config/tildesh-shell/menu.lua"))
 -- What every key does, off the binds hedl publishes. This one included.
 hedl.bind(mod .. " + K",            "Keys",         hedl.dsp.spawn("wweft ~/.config/tildesh-shell/keys.lua"))
 hedl.bind(mod .. " + SHIFT + T",    "Theme",        hedl.dsp.spawn("wweft ~/.config/tildesh-shell/theme-picker.lua"))
