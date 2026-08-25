@@ -1,0 +1,93 @@
+#!/bin/bash
+# The tray, for the popup that draws it.
+#
+#   tray-items                            one line for each registered item
+#   tray-items menu <service> <path> [id]  that item's menu, or one submenu
+#   tray-items click <service> <path> <id> fire one entry
+#
+# kippsrv owns org.kde.StatusNotifierWatcher, which is why anything appears
+# here at all: a bus name has one owner, and an application with nowhere to
+# register exports no icon. What the watcher publishes as a `tray` fact is that
+# an item is registered and nothing else, so a name to draw and a menu to walk
+# are still D-Bus questions, and they are asked here.
+#
+# Activating an item is not: that is one call on the StatusNotifierItem
+# interface, and kippsrv already names it. The popup sends ACTIVATE up the
+# socket and this file never sees it.
+#
+# Most items report ItemIsMenu, which the spec says means they have no left
+# click at all and the host shows their menu instead. That menu is plain data
+# over com.canonical.dbusmenu, which is the rest of this file.
+
+set -uo pipefail
+
+WATCHER=org.kde.StatusNotifierWatcher
+WATCHER_PATH=/StatusNotifierWatcher
+ITEM=org.kde.StatusNotifierItem
+MENU=com.canonical.dbusmenu
+
+prop() {
+	busctl --user --json=short get-property "$1" "$2" "$ITEM" "$3" 2>/dev/null |
+		jq -r '.data // empty'
+}
+
+menu_path() {
+	local at
+	at=$(prop "$1" "$2" Menu)
+	printf '%s' "${at:-/MenuBar}"
+}
+
+# The watcher hands back "service/path", and a bus name never holds a slash,
+# so the first one splits them. No slash at all means the well-known path the
+# spec names.
+list() {
+	local entry service path title
+	busctl --user --json=short get-property "$WATCHER" "$WATCHER_PATH" \
+		"$WATCHER" RegisteredStatusNotifierItems 2>/dev/null |
+		jq -r '.data[]?' |
+	while IFS= read -r entry; do
+		service=${entry%%/*}
+		path=${entry#"$service"}
+		[ -n "$path" ] || path=/StatusNotifierItem
+
+		title=$(prop "$service" "$path" Title)
+		[ -n "$title" ] || title=$(prop "$service" "$path" Id)
+		printf 'item\t%s\t%s\t%s\t%s\n' "$service" "$path" \
+			"${title:-$service}" \
+			"$([ "$(prop "$service" "$path" ItemIsMenu)" = true ] && echo 1 || echo 0)"
+	done
+}
+
+# One level of it. A submenu is the same question asked with its own id, which
+# is why depth is 1 and not the whole tree: an application fills a submenu when
+# it is asked for, and asking for everything at once gets the stale copy.
+entries() {
+	local at
+	at=$(menu_path "$1" "$2")
+
+	# The spec's way of saying a menu is about to be shown. One that builds
+	# itself lazily is empty without it.
+	busctl --user call "$1" "$at" "$MENU" AboutToShow i "${3:-0}" >/dev/null 2>&1
+
+	busctl --user --json=short call "$1" "$at" "$MENU" GetLayout iias "${3:-0}" 1 0 \
+		2>/dev/null | jq -r '
+		.data[1][2][]? | .data as $e | $e[0] as $id | ($e[1] // {}) as $p
+		| (if ($p.type.data // "") == "separator" then "separator"
+		   elif ($p["children-display"].data // "") == "submenu" then "submenu"
+		   else "item" end) as $kind
+		| "entry\t\($id)\t\(($p.label.data // "") | gsub("\t"; " "))\t\($kind)\t\(if $p.enabled.data == false then 0 else 1 end)\t\(if ($p["toggle-state"].data // 0) == 1 then 1 else 0 end)"
+	'
+}
+
+case "${1:-}" in
+menu)  entries "$2" "$3" "${4:-0}" ;;
+# "clicked" carries no data, but the signature still wants a variant, so an
+# empty string goes in as the placeholder every other host sends.
+click) busctl --user call "$2" "$(menu_path "$2" "$3")" "$MENU" \
+	Event isvu "$4" clicked s "" 0 ;;
+"")    list ;;
+*)
+	echo "usage: tray-items [menu <service> <path> [id] | click <service> <path> <id>]" >&2
+	exit 1
+	;;
+esac

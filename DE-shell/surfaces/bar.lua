@@ -81,7 +81,7 @@ end
 -- has been read, which is the whole of what the bar says about a notification.
 -- Reading one means opening the panel, so the bar never has to draw a body.
 local RIGHT = {
-	{icon = "󰅀", run = ""},
+	{icon = "󰅀", run = "wweft ~/.config/tildesh-shell/tray.lua", close = true},
 	{icon = "󰂯", run = "wweft ~/.config/tildesh-shell/bluetooth.lua", close = true},
 	{icon = "󰤨", run = "wweft ~/.config/tildesh-shell/network.lua", close = true},
 	{icon = "󰕾", run = "wweft ~/.config/tildesh-shell/sound.lua", close = true},
