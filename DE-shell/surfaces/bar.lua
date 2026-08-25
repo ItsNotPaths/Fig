@@ -67,7 +67,12 @@ local CENTRE = {
 	{icon = "",  run = "bar-actions screenshot", close = true},
 	{icon = "󰖐", run = ""},                            -- weather, a panel
 }
-local CLOCK_AT = 4
+-- Which piece the clock is. Found rather than written down, so adding a glyph
+-- to the left of it is one line and not two.
+local CLOCK_AT = 1
+for i, item in ipairs(CENTRE) do
+	if item.clock then CLOCK_AT = i end
+end
 
 -- The right group, in screen order, so notifications end up in the corner. No
 -- panel behind any of these yet except the last.
@@ -152,11 +157,10 @@ end
 
 function bar:enter(mode)
 	self.mode = mode
-	-- The centre opens on its first piece, not the clock: landing on the clock
-	-- means the first Return does nothing, since it is a label. The right opens
-	-- on its last, because that is notifications, and notifications are what
-	-- the group is usually opened for.
-	self.sel = mode == "right" and #RIGHT or 1
+	-- Each group opens on what it is usually opened for: the clock, which is
+	-- the calendar, and the last piece on the right, which is notifications.
+	-- The rest of either group is one key away.
+	self.sel = mode == "right" and #RIGHT or CLOCK_AT
 	Surface.keyboard(true)
 end
 
@@ -188,7 +192,7 @@ function bar:onKey(k)
 		self:step(-1)
 	elseif k == "Right" or k == "l" then
 		self:step(1)
-	elseif k == "Return" then
+	elseif k == "Return" or k == "space" then
 		self:fire()
 	elseif k == "Escape" then
 		self:leave()
