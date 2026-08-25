@@ -1,0 +1,10 @@
+[Desktop Entry]
+# TEMPORARY. Seeds for the launcher, so it has more than foot and mpv
+# to list while it is being built. Delete this directory when real
+# applications are installed.
+Type=Application
+Name=Weather
+Exec=sh -c 'weather-fetch; printf "\n[any key]"; read -rsn1'
+Terminal=true
+Icon=weather-clear
+Categories=System;

@@ -73,7 +73,8 @@ end)
 
 hedl.bind(mod .. " + Return",       "Terminal",     hedl.dsp.spawn(term))
 hedl.bind(mod .. " + Q",            "Close window", hedl.dsp.killclient())
-hedl.bind(mod .. " + D",            "What kippsrv says", hedl.dsp.spawn("test-wweft"))
+hedl.bind(mod .. " + D",            "Run",          hedl.dsp.spawn("wweft ~/.config/tildesh-shell/apps.lua"))
+hedl.bind(mod .. " + SHIFT + D",    "What kippsrv says", hedl.dsp.spawn("test-wweft"))
 hedl.bind(mod .. " + SHIFT + T",    "Theme",        hedl.dsp.spawn("wweft ~/.config/tildesh-shell/theme-picker.lua"))
 
 -- The bar takes the keyboard while a mode holds and gives it back on Escape.

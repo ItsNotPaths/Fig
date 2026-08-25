@@ -1,0 +1,10 @@
+[Desktop Entry]
+# TEMPORARY. Seeds for the launcher, so it has more than foot and mpv
+# to list while it is being built. Delete this directory when real
+# applications are installed.
+Type=Application
+Name=Manual
+Exec=sh -c 'man hedl; printf "\n[any key]"; read -rsn1'
+Terminal=true
+Icon=help-browser
+Categories=System;

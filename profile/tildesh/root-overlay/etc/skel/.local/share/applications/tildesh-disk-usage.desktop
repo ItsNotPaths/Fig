@@ -1,0 +1,10 @@
+[Desktop Entry]
+# TEMPORARY. Seeds for the launcher, so it has more than foot and mpv
+# to list while it is being built. Delete this directory when real
+# applications are installed.
+Type=Application
+Name=Disk Usage
+Exec=sh -c 'df -h; printf "\n[any key]"; read -rsn1'
+Terminal=true
+Icon=drive-harddisk
+Categories=System;

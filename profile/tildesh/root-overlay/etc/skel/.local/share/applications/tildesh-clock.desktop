@@ -1,0 +1,10 @@
+[Desktop Entry]
+# TEMPORARY. Seeds for the launcher, so it has more than foot and mpv
+# to list while it is being built. Delete this directory when real
+# applications are installed.
+Type=Application
+Name=Clock
+Exec=sh -c 'while :; do clear; date; sleep 1; done'
+Terminal=true
+Icon=clock
+Categories=System;

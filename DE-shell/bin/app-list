@@ -1,0 +1,49 @@
+#!/bin/bash
+# The applications, for the launcher.
+#
+#   app-list     name<TAB>command, one for each .desktop worth showing
+#
+# A .desktop file is an ini file with a [Desktop Entry] group and, sometimes,
+# [Desktop Action ...] groups after it. Only the first group is an application,
+# so the rest are skipped rather than listed as if they were.
+#
+# Terminal=true means the program draws in a terminal and has none of its own,
+# so the command is wrapped here. Which terminal is a machine fact, and a
+# surface should not have to know it.
+
+set -uo pipefail
+
+TERM_CMD=${TERMINAL:-foot}
+
+IFS=: read -ra data_dirs <<<"${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+
+dirs=("${XDG_DATA_HOME:-$HOME/.local/share}/applications")
+for d in "${data_dirs[@]}"; do dirs+=("$d/applications"); done
+
+mapfile -t files < <(find "${dirs[@]}" -maxdepth 1 -name '*.desktop' 2>/dev/null)
+[ ${#files[@]} -gt 0 ] || exit 0
+
+awk -v term="$TERM_CMD" '
+	function flush(  cmd) {
+		if (name != "" && exec != "" && !nodisplay && !hidden && type == "Application") {
+			cmd = exec
+			gsub(/%[fFuUickvm]/, "", cmd)   # field codes: nothing is being opened
+			gsub(/[ \t]+$/, "", cmd)
+			if (terminal) cmd = term " -e " cmd
+			print name "\t" cmd
+		}
+		name = ""; exec = ""; type = ""
+		nodisplay = 0; hidden = 0; terminal = 0; entry = 0
+	}
+	FNR == 1 { flush() }
+	/^\[/ { entry = ($0 == "[Desktop Entry]"); next }
+	!entry { next }
+	# The first Name wins, so a localised Name[de] later in the file is ignored.
+	/^Name *=/            { if (name == "") { sub(/^Name *= */, ""); name = $0 } }
+	/^Exec *=/            { if (exec == "") { sub(/^Exec *= */, ""); exec = $0 } }
+	/^Type *=/            { sub(/^Type *= */, ""); type = $0 }
+	/^Terminal *= *true/  { terminal = 1 }
+	/^NoDisplay *= *true/ { nodisplay = 1 }
+	/^Hidden *= *true/    { hidden = 1 }
+	END { flush() }
+' "${files[@]}" | sort -u -t$'\t' -k1,1f
