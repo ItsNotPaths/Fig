@@ -85,7 +85,7 @@ local RIGHT = {
 	{icon = "󰂯", run = ""},
 	{icon = "󰤨", run = ""},
 	{icon = "󰕾", run = ""},
-	{icon = "󰍹", run = ""},
+	{icon = "󰍹", run = "wweft ~/.config/tildesh-shell/display.lua", close = true},
 	{notif = true, run = "wweft ~/.config/tildesh-shell/notifications.lua",
 	 close = true},
 }
