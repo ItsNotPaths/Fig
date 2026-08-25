@@ -41,6 +41,21 @@ return {
 		  sock = "$XDG_RUNTIME_DIR/hedl/kipp",
 		  cmd  = "$XDG_RUNTIME_DIR/hedl/cmd" },
 
+		-- bluez, on the system bus. The stream is named before the seed on
+		-- purpose: both share the adapter file, and a command is answered by
+		-- the first source that names it, which has to be the one holding a
+		-- bus. The seed reads what is paired now; the stream carries every
+		-- connect, battery and scan result after it.
+		{ name = "bt", adapter = lua .. "/bt/bluez.lua", system = true,
+		  dbus = {"type='signal',sender='org.bluez',interface='org.freedesktop.DBus.ObjectManager'",
+		          "type='signal',sender='org.bluez',interface='org.freedesktop.DBus.Properties'"} },
+
+		-- busctl is elogind's here, not systemd's. The image installs it for
+		-- the seat, so the seed costs no package of its own.
+		{ name = "bt-seed", adapter = lua .. "/bt/bluez.lua",
+		  exec = {"busctl", "--system", "--json=short", "call", "org.bluez", "/",
+		          "org.freedesktop.DBus.ObjectManager", "GetManagedObjects"} },
+
 		{ name = "net", adapter = lua .. "/net/nm.lua",
 		  exec = {"nmcli", "-t", "-f", "UUID,NAME,TYPE,DEVICE", "connection", "show"},
 		  every = 5000 },

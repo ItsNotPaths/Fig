@@ -1,0 +1,34 @@
+#!/bin/bash
+# The bluetooth popup's two verbs. Everything else it does goes up the kippsrv
+# socket, because kippsrv holds the bus that bluez answers on.
+#
+#   bt-actions power <on|off>
+#   bt-actions pair <address>
+#
+# Power is here because kippsrv publishes the adapter and does not drive it,
+# and because bluez refuses to power one up while rfkill holds a soft block on
+# it. That is two commands, which is a script and not a table entry.
+#
+# Pairing stops to ask: a passkey to compare, a PIN to type. The question needs
+# an agent to arrive at, and bluetoothctl brings one. A surface the bar spawned
+# is nowhere for it to appear, so pairing goes to a terminal.
+
+set -uo pipefail
+
+case "${1:-}" in
+power)
+	[ "${2:-}" = on ] && rfkill unblock bluetooth
+	bluetoothctl power "${2:-}"
+	;;
+pair)
+	# Trust after pair, or it pairs once and never comes back on its own.
+	foot -e bash -c 'bluetoothctl --agent KeyboardDisplay pair "$1" &&
+	                 bluetoothctl trust "$1" &&
+	                 bluetoothctl connect "$1"
+	                 read -rsn1 -p "Press a key to close."' _ "${2:-}"
+	;;
+*)
+	echo "usage: bt-actions power <on|off> | pair <address>" >&2
+	exit 1
+	;;
+esac

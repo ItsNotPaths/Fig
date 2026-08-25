@@ -82,7 +82,7 @@ end
 -- Reading one means opening the panel, so the bar never has to draw a body.
 local RIGHT = {
 	{icon = "󰅀", run = ""},
-	{icon = "󰂯", run = ""},
+	{icon = "󰂯", run = "wweft ~/.config/tildesh-shell/bluetooth.lua", close = true},
 	{icon = "󰤨", run = "wweft ~/.config/tildesh-shell/network.lua", close = true},
 	{icon = "󰕾", run = "wweft ~/.config/tildesh-shell/sound.lua", close = true},
 	{icon = "󰍹", run = "wweft ~/.config/tildesh-shell/display.lua", close = true},
