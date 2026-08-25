@@ -8,10 +8,11 @@ config.lua        what you set: the typeface, its size, and the first theme
 record.lua        what the record popup offers, and where the file lands
 surfaces/         one file for each surface. Each one draws
 bin/              what a surface runs, and kippnotif. On PATH, not beside it
-lib/              code. Nothing here draws and nothing here is a setting
+lib/              code more than one surface needs. No settings live here
   settings.lua      reads config.lua
   palette.lua       the colours now, and when they changed
   kipp.lua          the facts off the kippsrv socket
+  meter.lua         a bar for a share of something, drawn in eighths
   theme/            the theme engine, and the templates it renders
 themes/           the palettes. Fetched, not committed
 vendor/           the NOTICE for omarchy's setters, and check.sh

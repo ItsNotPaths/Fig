@@ -61,7 +61,8 @@ local CENTRE = {
 	{icon = "󰔎", run = "bar-actions nightlight", on = "nightlight"},
 	{icon = "󰢌", run = ""},                            -- reminder, wants a surface
 	{icon = "󰅶", run = "bar-actions stayawake", on = "stayawake"},
-	{icon = "",  clock = true},
+	{icon = "",  clock = true, close = true,
+	 run = "wweft ~/.config/tildesh-shell/calendar.lua"},
 	{icon = "󰻂", run = "bar-actions record", on = "recording", close = true},
 	{icon = "",  run = "bar-actions screenshot", close = true},
 	{icon = "󰖐", run = ""},                            -- weather, a panel
