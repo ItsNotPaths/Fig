@@ -1,6 +1,6 @@
 -- Pick what to record.
 --
---   top     the rows written in record.lua, one press each
+--   top     the rows written in lists/record.lua, one press each
 --   under   the sound, every monitor, and every window open right now
 --
 -- A window is not a monitor with a smaller box: it goes through the portal,
@@ -16,7 +16,7 @@ local palette = require("lib.palette")
 local config  = require("lib.settings")
 
 local HOME = os.getenv("HOME") or ""
-local FILE = HOME .. "/.config/tildesh-shell/record.lua"
+local FILE = HOME .. "/.config/tildesh-shell/lists/record.lua"
 
 local c = palette.load()
 local BG    = palette.argb(c.background, 0xf2)
@@ -137,7 +137,7 @@ function rec:targets()
 	return out
 end
 
--- A row from record.lua names its monitors by intent rather than by name,
+-- A row from lists/record.lua names its monitors by intent rather than by
 -- because the file is written before anyone knows what is plugged in.
 function rec:from(one)
 	local out = {}

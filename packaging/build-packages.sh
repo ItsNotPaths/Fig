@@ -91,6 +91,11 @@ mkdir -p "$skel/lib" "$share/themes" "$share/theme-setters/helpers"
 # something works.
 cp "$root/DE-shell/"*.lua "$skel/"
 cp "$root/DE-shell/surfaces/"*.lua "$skel/"
+# What a surface offers, as opposed to the surface. These are named for the
+# surface that reads them, so they cannot share a directory with it: the
+# copy above would land on top of them, which is what it did.
+mkdir -p "$skel/lists"
+cp "$root/DE-shell/lists/"*.lua "$skel/lists/"
 cp -r "$root/DE-shell/lib/." "$skel/lib/"
 cp -r "$root/DE-shell/themes/." "$share/themes/"
 cp "$root/DE-shell/vendor/setters/"* "$share/theme-setters/"

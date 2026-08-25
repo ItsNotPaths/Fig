@@ -5,8 +5,9 @@ them runs.
 
 ```
 config.lua        what you set: the typeface, its size, and the first theme
-record.lua        what the record popup offers, and where the file lands
 surfaces/         one file for each surface. Each one draws
+lists/            what a surface offers, as opposed to the surface
+  record.lua        what the record popup offers, and where the file lands
 bin/              what a surface runs, and kippnotif. On PATH, not beside it
 lib/              code more than one surface needs. No settings live here
   settings.lua      reads config.lua
@@ -22,8 +23,9 @@ Installed by the `tildesh-shell` package:
 
 | From | To |
 | --- | --- |
-| `config.lua`, `record.lua`, `surfaces/*.lua` | `/etc/skel/.config/tildesh-shell/` |
+| `config.lua`, `surfaces/*.lua` | `/etc/skel/.config/tildesh-shell/` |
 | `lib/` | `/etc/skel/.config/tildesh-shell/lib/` |
+| `lists/` | `/etc/skel/.config/tildesh-shell/lists/` |
 | `bin/*` | `/usr/bin/` |
 | `themes/` | `/usr/share/tildesh/themes/` |
 | `vendor/setters/` | `/usr/share/tildesh/theme-setters/` |
@@ -32,6 +34,11 @@ Installed by the `tildesh-shell` package:
 Not `~/.config/wweft/`. That is wweft's own directory, and these files are no
 more wweft's configuration than a script is bash's. wweft is a renderer that
 lives on PATH, the way foot does, and the shell is what runs on it.
+
+A list is named for the surface that reads it, so the two cannot share a
+directory: `cp surfaces/*.lua` would land on top of `record.lua` and did, for
+as long as the record popup has existed. It ran on its defaults and said
+nothing, which is what that class of bug looks like.
 
 They go through `/etc/skel` because a surface has to be the user's copy to be
 editable. wweft puts the running script's own directory first on
