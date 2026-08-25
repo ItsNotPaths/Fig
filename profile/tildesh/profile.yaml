@@ -119,6 +119,9 @@ rootfs:
     - mpv
     - socat
     - jq
+    # weather-fetch asks Open-Meteo. pacman links libcurl and not the tool,
+    # so it is named here rather than hoped for.
+    - curl
     # pactl, which the audio adapter runs. pipewire-pulse replaces the daemon
     # and not the tool.
     - libpulse

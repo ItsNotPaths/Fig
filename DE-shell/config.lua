@@ -17,6 +17,16 @@ return {
 	-- 12 or 24. The date beside it does not change either way.
 	clock = 12,
 
+	-- Where the weather is: a place name, a "lat,lon" pair, or "" to work it
+	-- out from the address the internet sees. A name is looked up once and
+	-- the answer kept, so this costs one request either way.
+	place = "",
+
+	-- "" takes the temperature from where you are: Fahrenheit in the countries
+	-- that use it, Celsius everywhere else. "C" or "F" forces it. The wind
+	-- follows either way, km/h or mph.
+	degrees = "",
+
 	-- The bar sits this many pixels below the top edge, to line up with
 	-- hedl's `gaps`. 0 puts it back against the edge.
 	gap = 8,

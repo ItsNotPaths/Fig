@@ -68,6 +68,13 @@ return {
 		{ name = "backlight", adapter = lua .. "/backlight/brightnessctl.lua",
 		  steady = true, exec = {"brightnessctl", "-m"}, every = 2000 },
 
+		-- The weather. Somebody else's server, and a quarter of an hour is
+		-- both often enough to be true and seldom enough to be polite. The
+		-- adapter is ours and sits beside this file; `weather-fetch` is what
+		-- knows where you are.
+		{ name = "weather", adapter = "~/.config/kippsrv/weather.lua",
+		  exec = {"weather-fetch"}, every = 900000 },
+
 		{ name = "power", adapter = lua .. "/power/upower.lua",
 		  exec = {"upower", "-d"}, every = 10000 },
 	},

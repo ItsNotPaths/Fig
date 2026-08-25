@@ -25,6 +25,7 @@
 -- e94ec64.
 
 local kipp   = require("lib.kipp")
+local sky    = require("lib.weather")
 local palette = require("lib.palette")
 local config = require("lib.settings")
 
@@ -65,7 +66,8 @@ local CENTRE = {
 	 run = "wweft ~/.config/tildesh-shell/calendar.lua"},
 	{icon = "󰻂", run = "bar-actions record", on = "recording", close = true},
 	{icon = "",  run = "bar-actions screenshot", close = true},
-	{icon = "󰖐", run = ""},                            -- weather, a panel
+	{icon = "󰖐", weather = true, close = true,
+	 run = "wweft ~/.config/tildesh-shell/weather.lua"},
 }
 -- Which piece the clock is. Found rather than written down, so adding a glyph
 -- to the left of it is one line and not two.
@@ -115,6 +117,7 @@ local bar = {
 	sel   = 1,
 	on    = {},         -- the toggles that are on, by name
 	unread = 0,         -- notif facts nobody has read
+	sky   = nil,        -- the weather fact, for the piece that draws it
 }
 
 -- kippsrv owns the notification bus name and publishes one fact for each live
@@ -150,10 +153,17 @@ function bar:group()
 	return self.mode == "right" and RIGHT or CENTRE
 end
 
--- Two pieces have a label rather than an icon, and both change under it.
+-- Three pieces have a label rather than an icon, and all three change under
+-- it. The weather keeps the glyph until there is something to say.
 function bar:label(items, i)
 	if items[i].clock then return " " .. self.clock .. " " end
 	if items[i].notif then return self.unread > 0 and " [!] " or " [N] " end
+	if items[i].weather then
+		local f = self.sky
+		if not f then return " " .. items[i].icon .. " " end
+		return (" %s %s° "):format(sky.glyph(f.attr.code, f.attr.night == "1"),
+		                           f.attr.temp or "?")
+	end
 	return " " .. items[i].icon .. " "
 end
 
@@ -216,7 +226,9 @@ function bar:onMessage(line)
 	end
 
 	local kind = self.facts:feed(line)
-	if kind == "focus" then
+	if kind == "weather" then
+		self.sky = self.facts:get("weather", "now")
+	elseif kind == "focus" then
 		local fact = self.facts:get("focus")
 		self.mon = fact and fact.subj[1]
 	elseif kind == "notif" then

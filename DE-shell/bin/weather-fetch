@@ -1,0 +1,123 @@
+#!/bin/bash
+# The weather, as kipp lines, for kippsrv to publish.
+#
+# One request to Open-Meteo carries both the conditions now and the days
+# ahead, and it takes the units as arguments, so nothing here converts
+# anything. It needs no key and no account.
+#
+#   weather  now      place=Denver temp=18 feels=17 code=3 night=0 wind=11
+#                     humidity=64 unit=C
+#   forecast <1|2|3>  date=2026-08-26 hi=22 lo=11 code=61
+#
+# The subject is the day ahead rather than its date, and `now` rather than the
+# place, so a poll rewrites the same four facts. A date or a place as the
+# subject would leave a trail of yesterdays and of towns you have left.
+#
+# `place` in config.lua is a name, a "lat,lon" pair, or empty to work it out
+# from the address the internet sees. A name costs one geocoding request, and
+# the answer is kept beside the theme so the next poll spends nothing.
+#
+# `degrees` is "C" or "F" to force it, and anything else -- "" is the shipped
+# value -- to take it from the country the place is in. The geocoder names
+# that country, so a place given as bare coordinates has none to read and
+# falls back to the locale.
+
+set -uo pipefail
+
+CONF="$HOME/.config/tildesh-shell/config.lua"
+CACHE="$HOME/.local/state/tildesh/weather-place"
+API=https://api.open-meteo.com/v1/forecast
+GEO=https://geocoding-api.open-meteo.com/v1/search
+
+get() { curl -fsS --max-time 8 "$@" 2>/dev/null; }
+
+setting() {
+	sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$CONF" 2>/dev/null | head -1
+}
+
+# The five countries that would rather have Fahrenheit, plus the places that
+# take their weather from the first of them. Everywhere else is Celsius.
+FAHRENHEIT=" US LR MM BS BZ KY PW FM MH PR GU VI AS MP "
+
+# name<TAB>lat<TAB>lon<TAB>country for what config.lua asks for, from the
+# cache when the ask has not changed.
+resolve() {
+	local want=$1 line
+
+	if line=$(cat "$CACHE" 2>/dev/null) && [ "${line%%	*}" = "$want" ]; then
+		printf '%s\n' "${line#*	}"
+		return 0
+	fi
+
+	local name lat lon cc
+	case "$want" in
+	# Coordinates, as typed. Nothing to look up, nothing to name it, and no
+	# country to read the units off.
+	-*[0-9]*,*|[0-9]*,*)
+		lat=${want%%,*}
+		lon=${want##*,}
+		name=$want
+		cc=""
+		;;
+	"")
+		# wttr.in reads the address, and Open-Meteo turns the name into a
+		# point. Neither is asked again once this is cached.
+		name=$(get "https://wttr.in/?format=%l")
+		name=${name%%,*}
+		[ -n "$name" ] || return 1
+		;&
+	*)
+		[ -n "${name:-}" ] || name=$want
+		IFS=$'\t' read -r name lat lon cc < <(
+			get "$GEO?name=$(printf '%s' "$name" | jq -sRr @uri)&count=1&language=en&format=json" |
+				jq -r '.results[0] | select(.) | "\(.name)\t\(.latitude)\t\(.longitude)\t\(.country_code // "")"')
+		;;
+	esac
+
+	[ -n "${lat:-}" ] && [ -n "${lon:-}" ] || return 1
+	mkdir -p "$(dirname "$CACHE")"
+	printf '%s\t%s\t%s\t%s\t%s\n' "$want" "$name" "$lat" "$lon" "${cc:-}" >"$CACHE"
+	printf '%s\t%s\t%s\t%s\n' "$name" "$lat" "$lon" "${cc:-}"
+}
+
+# Where you are decides, unless config.lua says otherwise. A country the
+# geocoder did not name leaves the locale to answer, which is what a machine
+# set to en_US is saying about itself.
+degrees_for() {
+	case "$(setting degrees)" in
+	C | c) printf 'C' ;;
+	F | f) printf 'F' ;;
+	*)
+		if [ -n "${1:-}" ]; then
+			[[ $FAHRENHEIT == *" $1 "* ]] && printf 'F' || printf 'C'
+		else
+			case "${LC_ALL:-${LC_MEASUREMENT:-${LANG:-}}}" in
+			en_US* | en_LR* | my_MM*) printf 'F' ;;
+			*) printf 'C' ;;
+			esac
+		fi
+		;;
+	esac
+}
+
+IFS=$'\t' read -r name lat lon cc < <(resolve "$(setting place)")
+[ -n "${lat:-}" ] || exit 1
+
+unit=$(degrees_for "${cc:-}")
+
+# forecast_days=4 because the first day it answers with is today, and the
+# three after it are the ones worth drawing.
+get "$API?latitude=$lat&longitude=$lon\
+&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day\
+&daily=weather_code,temperature_2m_max,temperature_2m_min\
+&timezone=auto&forecast_days=4\
+$([ "$unit" = F ] && printf '%s' '&temperature_unit=fahrenheit&wind_speed_unit=mph')" |
+	jq -r --arg place "$name" --arg unit "$unit" '
+	def r: if . == null then "" else (.|round|tostring) end;
+	(.current | "weather\tnow\tplace=\($place)\ttemp=\(.temperature_2m|r)\tfeels=\(.apparent_temperature|r)"
+	          + "\tcode=\(.weather_code)\tnight=\(if .is_day == 0 then 1 else 0 end)"
+	          + "\twind=\(.wind_speed_10m|r)\thumidity=\(.relative_humidity_2m|r)\tunit=\($unit)"),
+	(.daily | [range(1; 4) as $i | "forecast\t\($i)\tdate=\(.time[$i])"
+	          + "\thi=\(.temperature_2m_max[$i]|r)\tlo=\(.temperature_2m_min[$i]|r)"
+	          + "\tcode=\(.weather_code[$i])"] | .[])
+	'
