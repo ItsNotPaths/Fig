@@ -129,6 +129,12 @@ cp "$root/DE-shell/auth/"*.c "$stage/figshell/auth/"
 # PATH is the only place they work, and renaming them would turn every
 # upstream fix into a merge.
 install -Dm755 "$root/DE-shell/vendor/pkg/"* -t "$stage/figshell/usr/bin/"
+# The hardware layer. Its detectors go on PATH for the same reason the package
+# tools do: the scripts call them by name. The scripts themselves are data
+# fig-hw reads, so they sit under share.
+install -Dm755 "$root/DE-shell/vendor/hw/bin/"* -t "$stage/figshell/usr/bin/"
+mkdir -p "$share/hw"
+cp -r "$root/DE-shell/vendor/hw/scripts" "$share/hw/scripts"
 chmod +x "$share/theme-setters/"* "$share/theme-setters/helpers/"* 2>/dev/null || true
 
 # ---------------------------------------------------------------- wrap + index

@@ -19,6 +19,8 @@ repo/
 /DE-shell/vendor/setters/
 /DE-shell/vendor/pkg/
 /DE-shell/vendor/helpers/
+/DE-shell/vendor/hw/bin/
+/DE-shell/vendor/hw/scripts/
 /DE-shell/lib/theme/templates/*.tpl
 !/DE-shell/lib/theme/templates/hedl-colors.lua.tpl
 !/DE-shell/lib/theme/templates/micro.micro.tpl

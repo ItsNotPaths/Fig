@@ -43,6 +43,29 @@ omarchy-pkg-aur-install omarchy-pkg-drop omarchy-pkg-install
 omarchy-pkg-missing omarchy-pkg-present omarchy-pkg-remove
 omarchy-show-done omarchy-sudo-keepalive"
 
+# The hardware layer. Detection is pure sysfs and lspci, so these helpers cross
+# over untouched; what does not cross over is any script whose package Artix
+# does not carry (asusctl, intel-lpmd, qmk-hid, dell-xps-touchpad-haptics,
+# lsp-plugins-lv2, linux-ptl, intel-ipu7-camera, t2fanrd) and any script that
+# is really systemd housekeeping. `fig-hw` runs what is listed here and says
+# out loud what it skipped.
+#
+# The detectors are exactly what the scripts below call, and what those call in
+# turn. The set closes: none of them reaches outside this list.
+OMARCHY_HW_BIN="omarchy-hw-match omarchy-hw-asus-expertbook-b9406
+omarchy-hw-asus-zenbook-ux5406aa omarchy-hw-asus-rog omarchy-hw-intel
+omarchy-hw-intel-ptl omarchy-hw-intel-sof omarchy-hw-nvidia-gsp
+omarchy-hw-nvidia-without-gsp omarchy-hw-surface omarchy-battery-present"
+
+OMARCHY_HW_SCRIPTS="bluetooth.sh fix-bcm43xx.sh fix-fkeys.sh
+fix-surface-keyboard.sh fix-synaptic-touchpad.sh fix-tuxedo-backlight.sh
+fix-yt6801-ethernet-adapter.sh nvidia.sh set-wireless-regdom.sh surface.sh
+vulkan.sh apple/fix-spi-keyboard.sh asus/fix-asus-ptl-b9406-display.sh
+asus/fix-asus-ptl-b9406-touchpad.sh asus/fix-asus-ptl-display-backlight.sh
+asus/fix-z13-touchpad.sh intel/fix-wifi7-eht.sh intel/fred.sh
+intel/sof-firmware.sh intel/thermald.sh intel/video-acceleration.sh
+lenovo/fix-yoga-pro7-bass-speakers.sh"
+
 # yay and mise. Neither is in an Artix repo, and neither is worth compiling:
 # both publish a prebuilt x86_64 binary with every release. packaging/ wraps
 # what lands here, the same way it wraps the font.
@@ -200,6 +223,18 @@ say "omarchy: package tools"
 mkdir -p "$shell/vendor/pkg"
 for f in $OMARCHY_PKG; do cp "$dir/bin/$f" "$shell/vendor/pkg/$f"; done
 chmod +x "$shell/vendor/pkg"/*
+
+say "omarchy: hardware layer"
+# Cleared first. The list shrinks as often as it grows, and a file left behind
+# from a longer list is a detector nothing calls and nobody remembers taking.
+rm -rf "$shell/vendor/hw"
+mkdir -p "$shell/vendor/hw/bin" "$shell/vendor/hw/scripts"
+for f in $OMARCHY_HW_BIN; do cp "$dir/bin/$f" "$shell/vendor/hw/bin/$f"; done
+for f in $OMARCHY_HW_SCRIPTS; do
+	mkdir -p "$shell/vendor/hw/scripts/$(dirname "$f")"
+	cp "$dir/install/hardware/$f" "$shell/vendor/hw/scripts/$f"
+done
+chmod +x "$shell/vendor/hw/bin"/*
 
 # --------------------------------------------------------- our edits to them
 #

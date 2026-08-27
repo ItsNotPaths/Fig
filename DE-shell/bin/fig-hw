@@ -1,0 +1,187 @@
+#!/bin/bash
+# fig-hw - find this machine's hardware and install what it wants.
+#
+# The detection and the fixes are omarchy's, vendored at the pinned tag by
+# download-deps.sh, which also holds the list of what did not cross over and
+# why. This file is the runner: it puts a runit-shaped `systemctl` on PATH,
+# runs each script in order, and says what happened.
+#
+# It has no opinion about when it runs. The live ISO, a first boot, or a hand
+# on a keyboard afterwards all work, and the installer calls it like anyone
+# else.
+set -uo pipefail
+
+HW=${FIG_HW_DIR:-/usr/share/fig/hw}
+
+# Order is omarchy's. The cheap detectors go first so a machine that matches
+# nothing is done in under a second, and nvidia comes before vulkan because
+# nvidia-utils is what carries NVIDIA's Vulkan driver.
+SCRIPTS="
+set-wireless-regdom.sh
+fix-fkeys.sh
+fix-synaptic-touchpad.sh
+bluetooth.sh
+nvidia.sh
+vulkan.sh
+intel/video-acceleration.sh
+intel/thermald.sh
+intel/fred.sh
+intel/fix-wifi7-eht.sh
+intel/sof-firmware.sh
+asus/fix-asus-ptl-display-backlight.sh
+asus/fix-asus-ptl-b9406-display.sh
+asus/fix-asus-ptl-b9406-touchpad.sh
+asus/fix-z13-touchpad.sh
+apple/fix-spi-keyboard.sh
+lenovo/fix-yoga-pro7-bass-speakers.sh
+fix-bcm43xx.sh
+fix-surface-keyboard.sh
+fix-yt6801-ethernet-adapter.sh
+fix-tuxedo-backlight.sh
+surface.sh
+"
+
+dry=0
+user=${SUDO_USER:-}
+for a in "$@"; do
+	case "$a" in
+	-n | --dry-run) dry=1 ;;
+	--user=*) user=${a#--user=} ;;
+	-h | --help)
+		sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+		echo
+		echo "usage: fig-hw [--dry-run] [--user=<name>]"
+		exit 0
+		;;
+	*) echo "fig-hw: unknown argument $a" >&2; exit 2 ;;
+	esac
+done
+
+[ "$(id -u)" = 0 ] || { echo "fig-hw: needs root" >&2; exit 1; }
+[ -d "$HW/scripts" ] || { echo "fig-hw: no scripts at $HW/scripts" >&2; exit 1; }
+
+# ------------------------------------------------------------------ dry run
+#
+# Not a list of intentions: the scripts run for real, in a mount namespace
+# where /etc is a throwaway copy of itself. Reads see everything they would
+# have, writes land in the copy, and the copy against the original is exactly
+# what would have changed. Anything reaching the network or the running kernel
+# is stubbed instead, further down.
+#
+# A copy and two bind mounts rather than an overlay: overlayfs refuses an
+# upperdir that is itself on overlayfs or tmpfs, which is every live ISO and
+# every container, so the clever version failed precisely where this is most
+# worth running. /etc is a few megabytes.
+scratch=""
+if [ "$dry" = 1 ] && [ -z "${FIG_HW_SANDBOXED:-}" ]; then
+	command -v unshare >/dev/null || { echo "fig-hw: --dry-run needs unshare" >&2; exit 1; }
+	exec unshare --mount --propagation private \
+		env FIG_HW_SANDBOXED=1 "$0" "$@"
+fi
+if [ "$dry" = 1 ]; then
+	scratch=$(mktemp -d)
+	mkdir -p "$scratch/was" "$scratch/now"
+	# The original, kept reachable after the copy is mounted over it.
+	mount --bind /etc "$scratch/was" \
+		|| { echo "fig-hw: cannot bind /etc, refusing to pretend" >&2; exit 1; }
+	cp -a /etc/. "$scratch/now/" 2>/dev/null
+	mount --bind "$scratch/now" /etc \
+		|| { echo "fig-hw: cannot bind the copy over /etc" >&2; exit 1; }
+fi
+
+# -------------------------------------------------------------------- shims
+#
+# PATH, so the vendored scripts stay byte-identical to upstream. A patch is
+# only for what a shim cannot answer.
+shim=$(mktemp -d)
+trap 'rm -rf "$shim"' EXIT
+
+# systemd unit -> the name Artix's runit package gives the same service.
+cat > "$shim/systemctl" <<'EOF'
+#!/bin/sh
+# systemctl, as much of it as omarchy's hardware scripts ask for, on runit.
+sv_name() {
+	n=${1%.service}
+	case "$n" in
+	bluetooth) echo bluetoothd ;;
+	*) echo "$n" ;;
+	esac
+}
+verb=$1; shift
+for a in "$@"; do case "$a" in --quiet | --now | --no-block) ;; *) set -- "$a" ;; esac; done
+n=$(sv_name "${1:-}")
+case "$verb" in
+enable)
+	[ -d "/etc/runit/sv/$n" ] || { echo "fig-hw: no runit service for $n" >&2; exit 0; }
+	mkdir -p /etc/runit/runsvdir/default
+	ln -sfn "/etc/runit/sv/$n" "/etc/runit/runsvdir/default/$n"
+	;;
+disable) rm -f "/etc/runit/runsvdir/default/$n" ;;
+mask | unmask | daemon-reload) ;;
+is-active) sv status "$n" >/dev/null 2>&1 ;;
+start | stop | restart) sv "$verb" "$n" >/dev/null 2>&1 || true ;;
+*) echo "fig-hw: systemctl $verb ignored" >&2 ;;
+esac
+exit 0
+EOF
+
+if [ "$dry" = 1 ]; then
+	# Everything that leaves the machine or touches the running kernel. The
+	# file writes are not stubbed: the copy above already catches them.
+	#
+	# stderr, not stdout. nvidia.sh reads a kernel name out of `$(pacman -Qqs
+	# ...)`, so a stub that answers on stdout is captured as the answer and
+	# the script goes on to install a package named after this message.
+	for c in omarchy-pkg-add pacman mkinitcpio modprobe dkms usermod; do
+		printf '#!/bin/sh\necho "  would: %s $*" >&2\nexit 0\n' "$c" > "$shim/$c"
+	done
+fi
+chmod +x "$shim"/*
+PATH="$shim:$PATH"
+export PATH
+
+# -------------------------------------------------------------------- run
+#
+# A script that finds nothing exits 0 having done nothing, so a clean run says
+# very little. That is the point: what it prints is what it touched.
+ran=0 failed=0
+for s in $SCRIPTS; do
+	f="$HW/scripts/$s"
+	[ -f "$f" ] || { printf 'skip  %-38s not vendored\n' "$s"; continue; }
+	out=$(bash "$f" 2>&1)
+	rc=$?
+	if [ "$rc" = 0 ]; then
+		[ -n "$out" ] && printf 'ok    %-38s\n%s\n' "$s" "$out" || true
+		ran=$((ran + 1))
+	else
+		printf 'FAIL  %-38s rc=%s\n%s\n' "$s" "$rc" "$out"
+		failed=$((failed + 1))
+	fi
+done
+
+# input-group.sh in omarchy's tree writes to a provisioning directory fig does
+# not have. The group is the whole of it: dictation tools and game controllers
+# want a readable /dev/input.
+if [ -n "$user" ] && getent passwd "$user" >/dev/null 2>&1; then
+	if [ "$dry" = 1 ]; then
+		echo "  would: usermod -aG input $user"
+	else
+		usermod -aG input "$user"
+	fi
+fi
+
+if [ "$dry" = 1 ]; then
+	echo
+	changed=$(diff -rq "$scratch/was" "$scratch/now" 2>/dev/null \
+		| sed -e "s|^Files $scratch/was|  /etc|" -e "s| and .*differ$| (changed)|" \
+		      -e "s|^Only in $scratch/now: |  /etc/|" -e "s|^Only in $scratch/now\(.*\): |  /etc\1/|")
+	if [ -n "$changed" ]; then
+		echo "under /etc it would write:"
+		echo "$changed"
+	else
+		echo "no file under /etc would change"
+	fi
+fi
+
+printf '\n%s scripts ran, %s failed\n' "$ran" "$failed"
+exit "$failed"
