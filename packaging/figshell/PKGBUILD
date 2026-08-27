@@ -1,0 +1,35 @@
+# The visible desktop: wweft surfaces, the theme engine, and the palettes and
+# setters vendored from omarchy.
+#
+# Surfaces go to /etc/skel because wweft reads ~/.config/wweft and nowhere
+# else, so a user's copy is the only copy that runs. Themes and setters are
+# installed rather than copied: nobody edits those.
+pkgname=figshell
+pkgver=${PKGVER:?PKGVER is not set}
+pkgrel=1
+pkgdesc="fig shell surfaces, the theme engine, and omarchy's themes and package tools"
+arch=('x86_64')
+url="https://github.com/ItsNotPaths/fig"
+license=('MIT')
+# fzf and plocate are the package panels': fzf is what they are, and plocate
+# is the updatedb the AUR one runs. No gum: the spinner it drew is drawn in
+# omarchy-show-done now, because gum read the key that script was waiting for.
+# pam is fig-auth's, below.
+depends=('wweft' 'socat' 'yay' 'fzf' 'plocate' 'pam')
+options=('!strip' '!debug')
+
+# One compiled file in an otherwise scripted package: fig-auth is what the
+# lock screen asks about a password, and PAM has no other interface. It needs
+# no privilege, because pam_unix runs the setuid unix_chkpwd itself.
+build() {
+	# _DEFAULT_SOURCE and not the POSIX macro alone: strdup is POSIX, and
+	# explicit_bzero is glibc's, which -std=c11 hides on its own.
+	cc -std=c11 -O2 -Wall -Wextra -D_DEFAULT_SOURCE \
+		-o fig-auth "${STAGE:?STAGE is not set}/auth/fig-auth.c" -lpam
+}
+
+package() {
+	cp -a "${STAGE:?STAGE is not set}"/. "$pkgdir"/
+	rm -rf "$pkgdir/auth"
+	install -Dm755 fig-auth "$pkgdir/usr/bin/fig-auth"
+}

@@ -4,7 +4,7 @@
 pkgname=hedl-wm
 pkgver=${PKGVER:?PKGVER is not set}
 pkgrel=1
-pkgdesc="hedl, the tildesh window manager. A dwl fork"
+pkgdesc="hedl, the fig window manager. A dwl fork"
 arch=('x86_64')
 url="https://github.com/ItsNotPaths/hedl-wm"
 license=('GPL-3.0-or-later')

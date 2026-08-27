@@ -1,81 +1,66 @@
 -- Pick a theme.
 --
--- A list and a selection. No previews: a screenshot of a theme is a picture
--- of an older version of it, and drawing one costs an image decoder wweft
--- does not have. The colours here are the current theme, so the picker is
--- already showing you what a theme looks like.
+--   type        filter
+--   Up/Down     move
+--   Return      apply it and close
+--   Escape      close
+--
+-- No previews: a screenshot of a theme is a picture of an older version of
+-- it, and drawing one costs an image decoder wweft does not have. The colours
+-- here are the current theme, so the picker is already showing you what a
+-- theme looks like.
+--
+-- The list and the filtering are lib/picker.lua, the same as every other
+-- surface of this shape. What is left is where the names come from and what
+-- picking one does.
 
-local palette = require("lib.palette")
+local picker = require("lib.picker")
 local config = require("lib.settings")
 local apply  = require("lib.theme.apply")
 
-local c = palette.load()
-local FG    = palette.argb(c.foreground)
-local BG    = palette.argb(c.background, 0xf2)
-local ACC   = palette.argb(c.accent)
-local MUTED = palette.argb(c.muted)
+local COLS, ROWS = 28, 12
 
-local TITLE = Style.define(ACC, BG)
-local ITEM  = Style.define(FG, BG)
-local SEL   = Style.define(BG, ACC)
-local MARK  = Style.define(MUTED, BG)
+local current = apply.current_name()
 
-local ROWS = 12
-
-local picker = {names = apply.list(), sel = 1, top = 1}
-picker.current = apply.current_name()
-
-for i, name in ipairs(picker.names) do
-	if name == picker.current then picker.sel = i end
+local function themes()
+	local rows = {}
+	for _, name in ipairs(apply.list()) do
+		rows[#rows + 1] = {text = name, value = name,
+		                   note = name == current and "*" or nil}
+	end
+	return rows
 end
 
-function picker:move(by)
-	self.sel = math.max(1, math.min(#self.names, self.sel + by))
-	self.top = math.max(self.sel - ROWS + 1, math.min(self.top, self.sel))
-end
+local list = picker.new{
+	prompt  = "Theme",
+	rows    = ROWS,
+	sources = {{name = "themes", rows = themes}},
 
-function picker:onKey(k)
-	if k == "Down" or k == "j" then
-		self:move(1)
-	elseif k == "Up" or k == "k" then
-		self:move(-1)
-	elseif k == "Return" then
-		local name = self.names[self.sel]
-		if name then
-			local ok, err = apply.apply(name)
-			if not ok then print("theme: " .. tostring(err)) end
-		end
+	pick = function(row)
+		local ok, err = apply.apply(row.value)
+		if not ok then io.stderr:write("theme: ", tostring(err), "\n") end
 		Surface.close(0)
-	elseif k == "Escape" then
+	end,
+
+	key = function(k)
+		if k ~= "Escape" then return false end
 		Surface.close(1)
-	else
-		return false
-	end
-	return true
+		return true
+	end,
+}
+list.empty = "No theme by that name"
+
+-- Open on the theme in use, so Return alone is a no-op rather than a change.
+for i, row in ipairs(list.hits) do
+	if row.value == current then list.sel = i end
 end
-
-function picker:onDraw(g)
-	g.fill(0, 0, g.cols, g.rows, ITEM)
-	g.text(1, 0, "Theme", TITLE)
-
-	for row = 0, ROWS - 1 do
-		local i = self.top + row
-		local name = self.names[i]
-		if not name then break end
-
-		local style = i == self.sel and SEL or ITEM
-		g.fill(0, row + 2, g.cols, 1, style)
-		g.text(1, row + 2, Text.clip(name, g.cols - 3), style)
-		if name == self.current then
-			g.text(g.cols - 2, row + 2, "*", i == self.sel and style or MARK)
-		end
-	end
-end
+list:move(0)
 
 local cfg = config.load()
 Surface.font(cfg.font, cfg.size)
-Surface.border("round", TITLE)
+Surface.border("round", list.style.title)
 Surface.layer("overlay")
 Surface.anchor("center")
-Surface.window(28, ROWS + 2)
-Surface.run(picker)
+Surface.window(COLS, ROWS + 1)
+Surface.listen("theme")
+Surface.run(list)

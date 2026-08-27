@@ -19,7 +19,7 @@ local palette = require("lib.palette")
 local config  = require("lib.settings")
 
 local HOME = os.getenv("HOME") or ""
-local TREE = HOME .. "/.config/tildesh-shell/lists/menu.lua"
+local TREE = HOME .. "/.config/figshell/lists/menu.lua"
 
 local COLS, ROWS = 46, 12
 

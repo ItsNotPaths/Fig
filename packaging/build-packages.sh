@@ -53,7 +53,7 @@ say "wweft: build.sh"
 
 # --------------------------------------------------------------------- stage
 
-pkgs="kippsrv wweft hedl-wm ttf-iosevkaterm-nerd-mono tildesh-defaults tildesh-shell"
+pkgs="kippsrv wweft hedl-wm wlay ttf-iosevkaterm-nerd-mono yay mise fig-defaults figshell"
 for p in $pkgs; do rm -rf "$stage/$p"; mkdir -p "$stage/$p"; done
 mkdir -p "$repo"
 
@@ -69,22 +69,34 @@ cp -r "$WWEFT_DIR/examples" "$stage/wweft/usr/share/wweft/examples"
 # the same tree twice is the same bytes twice.
 tar -c -C "$HEDL_DIR" --exclude=.git . | tar -x -C "$stage/hedl-wm"
 
+# wlay stages source too, and it is not ours: download-deps.sh fetched it at a
+# pinned commit with its submodules. .git goes, the submodule trees stay.
+[ -f "$root/vendor/wlay/main.c" ] || die "no wlay in vendor/. Run ./download-deps.sh"
+tar -c -C "$root/vendor/wlay" --exclude=.git . | tar -x -C "$stage/wlay"
+
 fonts="$root/vendor/fonts/iosevka"
 [ -n "$(find "$fonts" -name '*.ttf' 2>/dev/null | head -1)" ] \
 	|| die "no fonts in $fonts. Run ./download-deps.sh"
 mkdir -p "$stage/ttf-iosevkaterm-nerd-mono/usr/share/fonts/TTF"
 cp "$fonts"/*.ttf "$stage/ttf-iosevkaterm-nerd-mono/usr/share/fonts/TTF/"
 
+# Released binaries. Their PKGBUILDs pick what to install out of the unpacked
+# archive, so the whole tree is staged as it came down.
+for p in yay mise; do
+	[ -d "$root/vendor/$p" ] || die "no $p in vendor/. Run ./download-deps.sh"
+	cp -a "$root/vendor/$p/." "$stage/$p/"
+done
+
 # Plain files, kept in the tree beside their PKGBUILD.
-cp -a "$root/packaging/tildesh-defaults/files/." "$stage/tildesh-defaults/"
+cp -a "$root/packaging/fig-defaults/files/." "$stage/fig-defaults/"
 
 # The shell. Surfaces and the theme engine are the user's, so they go through
 # /etc/skel; the palettes and the vendored setters are the machine's.
 #
 # Not ~/.config/wweft: that is wweft's own directory, and these are no more
 # wweft's configuration than a script is bash's. wweft is a renderer on PATH.
-skel="$stage/tildesh-shell/etc/skel/.config/tildesh-shell"
-share="$stage/tildesh-shell/usr/share/tildesh"
+skel="$stage/figshell/etc/skel/.config/figshell"
+share="$stage/figshell/usr/share/fig"
 mkdir -p "$skel/lib" "$share/themes" "$share/theme-setters/helpers"
 # The top of the directory is what a person edits: the settings files and the
 # surfaces. Everything under lib/ is code they only open to change how
@@ -108,14 +120,22 @@ cp "$root/DE-shell/vendor/helpers/"* "$share/theme-setters/helpers/"
 cp "$root/DE-shell/vendor/NOTICE" "$share/theme-setters/NOTICE"
 # What the surfaces run. A surface names an intent, so these have to be found
 # by name, which means PATH and not the shell's own directory.
-install -Dm755 "$root/DE-shell/bin/"* -t "$stage/tildesh-shell/usr/bin/"
+install -Dm755 "$root/DE-shell/bin/"* -t "$stage/figshell/usr/bin/"
+# The one compiled file, staged as source. Its PKGBUILD builds it in the
+# container, where pam is a package rather than this machine's headers.
+mkdir -p "$stage/figshell/auth"
+cp "$root/DE-shell/auth/"*.c "$stage/figshell/auth/"
+# omarchy's package tools, under their own names. They call each other, so
+# PATH is the only place they work, and renaming them would turn every
+# upstream fix into a merge.
+install -Dm755 "$root/DE-shell/vendor/pkg/"* -t "$stage/figshell/usr/bin/"
 chmod +x "$share/theme-setters/"* "$share/theme-setters/helpers/"* 2>/dev/null || true
 
 # ---------------------------------------------------------------- wrap + index
 #
 # makepkg refuses to run as root, so the container image carries a `builder`
-# user. Every PKGBUILD but hedl-wm's copies what is already staged. That one
-# compiles it, against the wlroots the image carries.
+# user. Most PKGBUILDs copy what is already staged. hedl-wm and wlay compile
+# it, against the libraries the image carries.
 
 inner='
 	set -eu
@@ -128,8 +148,8 @@ inner='
 		rm -f /repo/$p-*.pkg.tar.zst
 		mv /tmp/$p/*.pkg.tar.zst /repo/
 	done
-	rm -f /repo/tildesh.db* /repo/tildesh.files*
-	repo-add -q /repo/tildesh.db.tar.zst /repo/*.pkg.tar.zst
+	rm -f /repo/fig.db* /repo/fig.files*
+	repo-add -q /repo/fig.db.tar.zst /repo/*.pkg.tar.zst
 	chown -R "$HOST_UID:$HOST_GID" /repo
 '
 
@@ -141,10 +161,13 @@ docker run --rm \
 	-e SPECS="kippsrv:$(version "$KIPPSRV_DIR") \
 wweft:$(version "$WWEFT_DIR") \
 hedl-wm:$(version "$HEDL_DIR") \
+wlay:$(version "$root/vendor/wlay") \
 ttf-iosevkaterm-nerd-mono:$(sed -n 's/^NERD_VERSION=v//p' "$root/download-deps.sh") \
-tildesh-defaults:$(version "$root") \
-tildesh-shell:$(version "$root")" \
+yay:$(sed -n 's/^YAY_VERSION=v//p' "$root/download-deps.sh") \
+mise:$(sed -n 's/^MISE_VERSION=v//p' "$root/download-deps.sh") \
+fig-defaults:$(version "$root") \
+figshell:$(version "$root")" \
 	-e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
-	tildesh-build bash -c "$inner"
+	fig-build bash -c "$inner"
 
 ls -1 "$repo"

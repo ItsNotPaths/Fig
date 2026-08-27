@@ -4,7 +4,7 @@
 local M = {}
 
 local HOME = os.getenv("HOME") or ""
-local PATH = HOME .. "/.config/tildesh-shell/config.lua"
+local PATH = HOME .. "/.config/figshell/config.lua"
 
 local DEFAULT = {font = "", family = "monospace", size = 16, size_foot = true,
                  clock = 12, gap = 8}
@@ -16,11 +16,11 @@ function M.load()
 	-- Falling back without a word is how a typo in config.lua looks exactly
 	-- like the setting having no effect. Say which and why.
 	if not chunk then
-		io.stderr:write("tildesh-shell: ", tostring(why), "\n")
+		io.stderr:write("figshell: ", tostring(why), "\n")
 	elseif not ok then
-		io.stderr:write("tildesh-shell: ", PATH, ": ", tostring(t), "\n")
+		io.stderr:write("figshell: ", PATH, ": ", tostring(t), "\n")
 	elseif type(t) ~= "table" then
-		io.stderr:write("tildesh-shell: ", PATH, " returned no table\n")
+		io.stderr:write("figshell: ", PATH, " returned no table\n")
 	end
 	if not ok or type(t) ~= "table" then t = {} end
 
@@ -28,7 +28,7 @@ function M.load()
 		if t[key] == nil then t[key] = fallback end
 	end
 	M.current = t
-	io.stderr:write(("tildesh-shell: font %s at %d\n")
+	io.stderr:write(("figshell: font %s at %d\n")
 	                :format(t.font == "" and "(default)" or t.font, t.size))
 	return t
 end

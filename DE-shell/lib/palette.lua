@@ -8,7 +8,7 @@
 
 local M = {palette = nil}
 
-local PATH = (os.getenv("HOME") or "") .. "/.local/state/tildesh/theme/tildesh.lua"
+local PATH = (os.getenv("HOME") or "") .. "/.local/state/fig/theme/fig.lua"
 
 -- wweft styles are 0xAARRGGBB. A palette is "#rrggbb", because that is what
 -- every other program on the machine reads.

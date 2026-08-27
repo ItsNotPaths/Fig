@@ -1,0 +1,197 @@
+---
+# fig, on runit. No display manager: agetty autologins on tty1 and the
+# live user's .bash_profile runs hedl.
+#
+# The seat comes from elogind, not seatd: Artix marks elogind-runit and
+# seatd-runit as conflicting, `base` depends on the init-logind that only
+# elogind provides, and polkit and the portals want the logind D-Bus API
+# anyway. libseat inside wlroots picks logind on its own.
+#
+# There is no livefs section on purpose. It is what keeps buildiso from
+# pulling Xorg and the xf86 driver set in behind our backs. The live-only
+# packages sit in rootfs instead, the same way the stock base profile does it.
+
+live-session:
+  user: fig
+  password: fig
+  autologin: true
+  use-xlibre: false
+  # Only services no package enables for itself. dbus-runit links `dbus`,
+  # elogind-runit links `logind` (an sv symlink to elogind), artix-live-runit
+  # links `pacman-init`, and the runit package links the six agettys. Naming
+  # any of them here makes buildiso abort, because its own `ln -s` then fails
+  # on a link that is already there.
+  services:
+    - NetworkManager
+    - bluetoothd
+    - acpid
+    # A login on the serial port, so the image can be driven in a VM with no
+    # screen. `qemu -serial mon:stdio` is then a whole test rig.
+    - agetty-ttyS0
+  user-services: []
+
+rootfs:
+  packages:
+    # Compositor and session.
+    #
+    # hedl-wm is ours, built into repo/ like kippsrv and wweft. It replaced
+    # sway once Phase A passed, which also drops gnu-free-fonts (sway's
+    # ttf-font dependency, and this image already ships three families) and
+    # the second copy of wlroots: hedl is on 0.20 now, which is what sway
+    # wanted, so one build of it serves the whole image.
+    #
+    # swaybg and swayidle stay. They are layer-shell and ext-idle-notify
+    # clients, and dwl has both.
+    #
+    # No lock package. The lock is a wweft surface holding the
+    # ext-session-lock-v1 role, with fig-auth asking PAM about the
+    # password, so it is themed by the same engine as everything else and
+    # nothing of Hyprland is on the image. hyprlock was here until it worked.
+    - hedl-wm
+    - swaybg
+    - swayidle
+    - foot
+    - polkit
+    - xdg-desktop-portal
+    - xdg-desktop-portal-wlr
+
+    # Graphics. vulkan-swrast is what makes the ISO boot on a VM with no
+    # passthrough GPU; vulkan-radeon is for the laptop.
+    - mesa
+    - vulkan-radeon
+    - vulkan-swrast
+
+    # Fonts. ttf-iosevkaterm-nerd-mono is ours: four faces, 57 MB, built by
+    # packaging/build-packages.sh. Artix's ttf-iosevkaterm-nerd is the same
+    # typeface at 1141 MB because it ships all 81 of them.
+    #
+    # ttf-dejavu is named so that pacman does not have to choose a ttf-font
+    # provider on its own, and it covers the scripts Iosevka does not.
+    # ttf-nerd-fonts-symbols is the glyph fallback for anything that ends up
+    # in a font we did not choose.
+    - ttf-iosevkaterm-nerd-mono
+    - ttf-dejavu
+    - ttf-nerd-fonts-symbols
+    # A tray icon is a name, looked up in an icon theme. With none installed
+    # there is nothing behind the name. Adwaita is also what the GTK setter
+    # falls back to when a theme names no icon theme of its own.
+    - hicolor-icon-theme
+    - adwaita-icon-theme
+
+    # Monitor arrangement, drawn. wlay is a wlr-output-management client and
+    # hedl creates that manager, so nothing here is ours or Hyprland's. It is
+    # GLFW and nuklear rather than GTK, which is 3.5 MB of glfw against the
+    # gtk3 the only other option would have wanted.
+    #
+    # Built into repo/ from a pinned commit, because upstream has never tagged
+    # a release and nobody packages it.
+    - wlay
+
+    # Ours. Built by packaging/build-packages.sh into repo/, which the build
+    # container mounts at file:///repo.
+    - fig-defaults
+    - figshell
+    - kippsrv
+    - wweft
+
+    # The seam. Every one of these is named by a kippsrv adapter or by a
+    # surface that reads one.
+    - networkmanager
+    - bluez
+    - bluez-utils
+    - pipewire
+    - pipewire-pulse
+    - pipewire-audio
+    - wireplumber
+    - brightnessctl
+    - playerctl
+    - upower
+    # D-Bus activated. Without it PipeWire cannot raise its own priority and
+    # says so once for every thread it starts.
+    - rtkit
+    # Night light. hyprsunset is Hyprland's; wlsunset drives
+    # wlr-gamma-control-unstable-v1, which hedl creates.
+    - wlsunset
+
+    # Power profiles, for the system panel. 145 KB, and libgudev at 390 KB is
+    # the only dependency not already here.
+    #
+    # It is the daemon and not a write to sysfs because the knob is not one
+    # file. This machine has no /sys/firmware/acpi/platform_profile at all, so
+    # a profile is scaling_governor plus energy_performance_preference across
+    # every cpufreq policy, which is 64 writes on a 32-thread part, ordered
+    # (the EPP choices depend on the governor) and with no way to apply them
+    # together. ppd also carries a current profile and a change signal, and
+    # sysfs carries neither.
+    #
+    # No service entry: it ships a D-Bus system service file, so dbus starts it
+    # on the first call, the same way rtkit above works. Artix packages a
+    # -dinit for it and no -runit, and neither is needed. Its four polkit
+    # actions are all allow_active=yes, so nothing prompts.
+    - power-profiles-daemon
+    - grim
+    - slurp
+    - wl-clipboard
+    # The rest of what the bar's centre group runs. gpu-screen-recorder takes
+    # its capture target on the command line, including a portal one, which is
+    # what lets the record popup pick a window. wf-recorder speaks only
+    # wlr-screencopy and can never capture one.
+    - gpu-screen-recorder
+    # Opens a screenshot for marking up. Nothing runs it on its own: the
+    # notification carries the command and the panel runs it on Return.
+    - satty
+    # notify-send, the client half. The daemon half is kippsrv, which owns
+    # org.freedesktop.Notifications: two programs cannot, so there is no dunst.
+    - libnotify
+    # Plays back what was just recorded, and everything else. Nothing here
+    # calls it; it is on the image because a desktop without a video player is
+    # not finished.
+    - mpv
+    - socat
+    - jq
+    # weather-fetch asks Open-Meteo. pacman links libcurl and not the tool,
+    # so it is named here rather than hoped for.
+    - curl
+    # pactl, which the audio adapter runs. pipewire-pulse replaces the daemon
+    # and not the tool.
+    - libpulse
+
+    # Utilities. An editor, a file manager and a process viewer, so a bare
+    # image is usable before any of the shell exists.
+    - micro
+    - yazi
+    - btop
+
+    # Packages, in and out. yay is ours, built into repo/ from upstream's
+    # released binary, because no Artix repo carries it or paru. base-devel is
+    # not optional beside it: an AUR helper that cannot run makepkg can only
+    # search. That is 353 MB, and it is what the AUR costs.
+    #
+    # The tools that drive yay ship in figshell and are omarchy's. fzf is
+    # what their three panels are, and plocate is the updatedb one of them
+    # runs. gum is gone: it drew the spinner the panels end on, and it also
+    # read the keypress that spinner was waiting for, so the terminal shut on
+    # its own. omarchy-show-done draws the same globe itself now.
+    - yay
+    - base-devel
+    - fzf
+    - plocate
+
+    # Runtimes, without a package for each one. mise is ours for the same
+    # reason yay is.
+    - mise
+
+    - earlyoom
+
+    # Live ISO only.
+    - artix-grub-live
+    - squashfs-tools
+
+  packages-init:
+    runit:
+      - networkmanager-runit
+      - bluez-runit
+      - artix-live-runit
+    dinit: []
+    openrc: []
+    s6: []

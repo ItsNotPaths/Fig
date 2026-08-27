@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build the tildesh ISO. Everything happens inside the Artix container, so the
+# Build the fig ISO. Everything happens inside the Artix container, so the
 # only thing the host needs is docker.
 #
 # buildiso chroots, mounts and makes loop devices, which is why the container
@@ -14,11 +14,11 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
-docker image inspect tildesh-build >/dev/null 2>&1 || "$root/scripts/build-host.sh"
+docker image inspect fig-build >/dev/null 2>&1 || "$root/scripts/build-host.sh"
 
 mkdir -p "$root/dist" "$root/repo"
 
-[ -f "$root/repo/tildesh.db" ] || {
+[ -f "$root/repo/fig.db" ] || {
 	echo "build-iso.sh: no packages in repo/. Run packaging/build-packages.sh first." >&2
 	exit 1
 }
@@ -30,7 +30,7 @@ inner='
 	for i in 0 1 2 3 4 5 6 7; do
 		[ -e /dev/loop$i ] || mknod /dev/loop$i b 7 $i
 	done
-	buildiso -p tildesh -i runit "$@"
+	buildiso -p fig -i runit "$@"
 	rc=$?
 	chown -R "$HOST_UID:$HOST_GID" /out
 	exit $rc
@@ -40,9 +40,9 @@ docker run --rm --privileged \
 	-v "$root/profile:/workspace/iso-profiles:ro" \
 	-v "$root/dist:/out" \
 	-v "$root/repo:/repo:ro" \
-	-v tildesh-chroots:/var/lib/artools \
-	-v tildesh-pkgcache:/var/cache/pacman/pkg \
+	-v fig-chroots:/var/lib/artools \
+	-v fig-pkgcache:/var/cache/pacman/pkg \
 	-e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
-	tildesh-build sh -c "$inner" -- "$@"
+	fig-build sh -c "$inner" -- "$@"
 
 ls -lh "$root/dist"

@@ -11,6 +11,7 @@
 local colors  = require("lib.theme.colors")
 local render  = require("lib.theme.render")
 local setters = require("lib.theme.setters")
+local kipp    = require("lib.kipp")
 
 -- Every path is a field and none is a local, so a caller that moves `home`
 -- moves all of them. A captured local looks the same and writes to the real
@@ -19,11 +20,11 @@ local HOME = os.getenv("HOME") or "/root"
 
 local M = {home = HOME}
 
-M.state     = HOME .. "/.local/state/tildesh"
+M.state     = HOME .. "/.local/state/fig"
 M.current   = M.state .. "/theme"
-M.dirs      = {HOME .. "/.config/tildesh/themes", "/usr/share/tildesh/themes"}
-M.templates = HOME .. "/.config/tildesh-shell/lib/theme/templates"
-M.setters   = "/usr/share/tildesh/theme-setters"
+M.dirs      = {HOME .. "/.config/fig/themes", "/usr/share/fig/themes"}
+M.templates = HOME .. "/.config/figshell/lib/theme/templates"
+M.setters   = "/usr/share/fig/theme-setters"
 M.helpers   = M.setters .. "/helpers"
 M.compat    = HOME .. "/.local/state/omarchy/current"
 
@@ -139,7 +140,7 @@ function M.apply(name)
 	-- stays put and the file behind it changes.
 	sh("mkdir -p " .. M.home .. "/.config/micro/colorschemes")
 	sh("cp -f " .. M.current .. "/micro.micro " ..
-	   M.home .. "/.config/micro/colorschemes/tildesh.micro")
+	   M.home .. "/.config/micro/colorschemes/fig.micro")
 
 	M.poke(name, pal)
 	return pal
@@ -151,8 +152,12 @@ function M.poke(name, pal)
 	setters.all(pal, M.current)
 
 	sh("wweft --send theme 'theme " .. name .. "' 2>/dev/null &")
-	sh("printf 'RELOAD\\n' | socat -t0 - UNIX-CONNECT:" ..
-	   (os.getenv("XDG_RUNTIME_DIR") or "/tmp") .. "/kippsrv.sock 2>/dev/null &")
+
+	-- kipp.send and not a socat line of our own. The one that was here used
+	-- -t0, which closes the connection before kippsrv has read the command,
+	-- so no theme change ever reached hedl and its colours stayed on the
+	-- theme before. lib/kipp.lua already knew that and already says so.
+	kipp.send("RELOAD")
 
 	-- The vendored half. helpers/ is on their PATH because they call each
 	-- other by name, which is one more reason not to edit them.

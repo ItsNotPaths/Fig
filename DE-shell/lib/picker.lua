@@ -10,8 +10,9 @@
 --       {name = "here",   live = function(q) return q == "" end, rows = here},
 --       {name = "search", live = function(q) return q ~= "" end, rows = every},
 --     },
---     pick = function(row) end,        -- Return, on the selected row
---     key  = function(k, self) end,    -- anything this file does not handle
+--     pick  = function(row) end,       -- Return, on the selected row
+--     key   = function(k, self) end,   -- anything this file does not handle
+--     moved = function(row, self) end, -- the selected row changed
 --   }
 --
 -- One source and no `live` is plain dmenu, which is the point: the extra
@@ -19,6 +20,10 @@
 --
 -- A row is {text = , note = , value = }. text is drawn left, note right, and
 -- value is what `pick` is handed. Nothing here knows what a row means.
+--
+-- A row may carry its own `style`, used when it is not the selected one. That
+-- is for a list where a row means something on its own -- a critical
+-- notification -- and not for decoration.
 --
 -- What this owns: the query, the filtering, the selection, the drawing. What
 -- it does not: where the rows come from, what a pick does, and the window.
@@ -48,6 +53,7 @@ function M.new(opts)
 		match   = opts.match or default_match,
 		on_pick = opts.pick,
 		on_key  = opts.key,
+		on_moved = opts.moved,
 		query   = "",
 		sel     = 1,
 		top     = 1,
@@ -107,12 +113,26 @@ function Picker:filter()
 	self.hits = hits
 	self.sel = math.max(1, math.min(#hits, self.sel))
 	self.top = math.max(self.sel - self.rows + 1, math.min(self.top, self.sel))
+	self:settle()
+end
+
+-- `moved` fires when the selected row changes and not on every key. A surface
+-- that follows the selection with something expensive, a preview process for
+-- one, should not pay for a keystroke that moved nothing: typing a letter that
+-- filters nothing out leaves the same row selected, and so does Down at the
+-- bottom of the list.
+function Picker:settle()
+	local row = self.hits[self.sel]
+	if row == self.on then return end
+	self.on = row
+	if self.on_moved then self.on_moved(row, self) end
 end
 
 function Picker:move(by)
 	if #self.hits == 0 then return end
 	self.sel = math.max(1, math.min(#self.hits, self.sel + by))
 	self.top = math.max(self.sel - self.rows + 1, math.min(self.top, self.sel))
+	self:settle()
 end
 
 function Picker:type(text)
@@ -183,7 +203,7 @@ function Picker:onDraw(g)
 		if not row then break end
 
 		local on = self.top + line == self.sel
-		local style = on and s.sel or s.item
+		local style = on and s.sel or (row.style or s.item)
 		local y = line + 1
 		local note = row.note or ""
 

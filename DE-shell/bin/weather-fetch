@@ -24,8 +24,8 @@
 
 set -uo pipefail
 
-CONF="$HOME/.config/tildesh-shell/config.lua"
-CACHE="$HOME/.local/state/tildesh/weather-place"
+CONF="$HOME/.config/figshell/config.lua"
+CACHE="$HOME/.local/state/fig/weather-place"
 API=https://api.open-meteo.com/v1/forecast
 GEO=https://geocoding-api.open-meteo.com/v1/search
 

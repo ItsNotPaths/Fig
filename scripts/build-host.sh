@@ -5,4 +5,4 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
-exec docker build -t tildesh-build "$root/docker"
+exec docker build -t fig-build "$root/docker"

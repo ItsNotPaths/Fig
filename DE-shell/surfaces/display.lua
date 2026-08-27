@@ -1,6 +1,7 @@
--- Display. How bright the screen is, and how big everything on it is drawn.
+-- Settings. How bright the screen is, how big everything on it is drawn, and
+-- which way the machine is leaning on power.
 --
---   Up/Down     move between the two
+--   Up/Down     move between the rows
 --   Left/Right  change what is under the cursor
 --   Return      apply the text size
 --   Escape      close
@@ -14,6 +15,12 @@
 -- The brightness comes off the kippsrv socket as the backlight fact, so this
 -- surface polls nothing. Setting it is a command, because kippsrv publishes
 -- the backlight and does not drive it.
+--
+-- The power profile is not a kipp fact and does not need to be. It is read
+-- once when the panel opens, which is when anyone can see it, and set with a
+-- command like every other write in the shell. `powerprofilesctl list` gives
+-- the whole answer in one fork: the profiles the machine offers, and a star
+-- against the one in use.
 
 local kipp    = require("lib.kipp")
 local palette = require("lib.palette")
@@ -21,13 +28,14 @@ local config  = require("lib.settings")
 local meter   = require("lib.meter")
 
 local HOME = os.getenv("HOME") or ""
-local SHELL = HOME .. "/.config/tildesh-shell"
+local SHELL = HOME .. "/.config/figshell"
 local CONF = SHELL .. "/config.lua"
 
 local COLS = 36
 local GAUGE = 10
 local STEP = 5           -- brightness, per key press
 local MIN, MAX = 8, 48   -- pixels tall, the range config.lua's size may take
+local ROWS = 3           -- brightness, text size, power
 
 palette.load()
 local TEXT   = palette.style("foreground", "background", 0xf2)
@@ -63,6 +71,24 @@ local function write_size(px)
 	return true
 end
 
+-- `* balanced:` for the one in use, `  performance:` for the rest, and four
+-- indented lines under each that this does not read. A machine with no ppd
+-- prints nothing here and the row says so rather than lying about a default.
+local function read_power()
+	local out = Surface.sh("powerprofilesctl list 2>/dev/null", 1500)
+	local list, at = {}, nil
+	for line in out:gmatch("[^\n]+") do
+		local mark, name = line:match("^(.)%s(%S+):$")
+		if name then
+			list[#list + 1] = name
+			if mark == "*" then at = #list end
+		end
+	end
+	return list, at
+end
+
+local power, power_at = read_power()
+
 local disp = {
 	facts = kipp.store(),
 	sel   = 1,
@@ -94,8 +120,15 @@ function disp:step(by)
 		self.pct = math.max(0, math.min(100, (self.pct or 0) + by * STEP))
 		Surface.spawn(("brightnessctl -q -d %s set %d%%")
 		              :format(Text.quote(self.dev), self.pct))
-	else
+	elseif self.sel == 2 then
 		self.size = math.max(MIN, math.min(MAX, self.size + by))
+	else
+		-- The ends stop rather than wrap: a profile list is ordered from
+		-- least power to most, and rolling off one end onto the other is
+		-- how you ask for quiet and get the fans.
+		if not power_at then return end
+		power_at = math.max(1, math.min(#power, power_at + by))
+		Surface.spawn("powerprofilesctl set " .. Text.quote(power[power_at]))
 	end
 end
 
@@ -116,9 +149,9 @@ end
 
 function disp:onKey(k)
 	if k == "Down" or k == "j" then
-		self.sel = 2
+		self.sel = math.min(ROWS, self.sel + 1)
 	elseif k == "Up" or k == "k" then
-		self.sel = 1
+		self.sel = math.max(1, self.sel - 1)
 	elseif k == "Left" or k == "h" then
 		self:step(-1)
 	elseif k == "Right" or k == "l" then
@@ -140,7 +173,7 @@ end
 
 function disp:onDraw(g)
 	g.fill(0, 0, g.cols, g.rows, TEXT)
-	g.text(1, 0, "Display", HEAD)
+	g.text(1, 0, "Settings", HEAD)
 
 	local on = self.sel == 1
 	local label = self.pct and ("%d%%"):format(self.pct) or "--"
@@ -154,8 +187,13 @@ function disp:onDraw(g)
 	self:row(g, 3, "Text size", on)
 	g.text(g.cols - Grid.width(size) - 1, 3, size, on and SEL or DIM)
 
+	on = self.sel == 3
+	local name = power_at and power[power_at] or "unavailable"
+	self:row(g, 4, "Power", on)
+	g.text(g.cols - Grid.width(name) - 1, 4, name, on and SEL or DIM)
+
 	if self.size ~= self.was then
-		g.text(1, 4, "Return applies, the shell restarts", DIM)
+		g.text(1, 5, "Return applies, the shell restarts", DIM)
 	end
 end
 
@@ -164,8 +202,8 @@ Surface.border("round", HEAD)
 Surface.layer("overlay")
 Surface.anchor("top-right")
 Surface.margin(cfg.gap, cfg.gap, 0, 0)
--- title, a blank, the two rows, and the line that says what Return would do
-Surface.window(COLS, 5)
+-- title, a blank, the three rows, and the line that says what Return would do
+Surface.window(COLS, 6)
 Surface.listen(kipp.socket)
 Surface.listen("theme")
 Surface.run(disp)

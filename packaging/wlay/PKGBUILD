@@ -1,0 +1,28 @@
+# Monitor arrangement, drawn. wlay is a wlr-output-management client, so it
+# drives hedl through a protocol hedl already creates and knows nothing about
+# fig. Built in the container like hedl, because it is C and every
+# dependency is in an Artix repo. STAGE holds the source, staged by
+# build-packages.sh with its two submodules already checked out.
+#
+# nuklear is one header inside the tree and links nothing, so the whole
+# runtime cost is glfw and libepoxy.
+pkgname=wlay
+pkgver=${PKGVER:?PKGVER is not set}
+pkgrel=1
+pkgdesc="Graphical output management for wlroots compositors"
+arch=('x86_64')
+url="https://github.com/atx/wlay"
+license=('MIT')
+depends=('wayland' 'glfw' 'libepoxy' 'glibc')
+makedepends=('cmake' 'extra-cmake-modules' 'pkgconf' 'wayland')
+
+build() {
+	cp -a "${STAGE:?STAGE is not set}" wlay
+	cmake -S wlay -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+	cmake --build build
+}
+
+package() {
+	install -Dm755 build/wlay "$pkgdir/usr/bin/wlay"
+	install -Dm644 wlay/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

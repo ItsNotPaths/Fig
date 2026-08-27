@@ -20,18 +20,18 @@ themes/           the palettes. Fetched, not committed
 vendor/           the NOTICE for omarchy's setters, and check.sh
 ```
 
-Installed by the `tildesh-shell` package:
+Installed by the `figshell` package:
 
 | From | To |
 | --- | --- |
-| `config.lua`, `surfaces/*.lua` | `/etc/skel/.config/tildesh-shell/` |
-| `lib/` | `/etc/skel/.config/tildesh-shell/lib/` |
-| `lists/` | `/etc/skel/.config/tildesh-shell/lists/` |
-| `wm-bind-parsers/` | `/etc/skel/.config/tildesh-shell/wm-bind-parsers/` |
+| `config.lua`, `surfaces/*.lua` | `/etc/skel/.config/figshell/` |
+| `lib/` | `/etc/skel/.config/figshell/lib/` |
+| `lists/` | `/etc/skel/.config/figshell/lists/` |
+| `wm-bind-parsers/` | `/etc/skel/.config/figshell/wm-bind-parsers/` |
 | `bin/*` | `/usr/bin/` |
-| `themes/` | `/usr/share/tildesh/themes/` |
-| `vendor/setters/` | `/usr/share/tildesh/theme-setters/` |
-| `vendor/helpers/` | `/usr/share/tildesh/theme-setters/helpers/` |
+| `themes/` | `/usr/share/fig/themes/` |
+| `vendor/setters/` | `/usr/share/fig/theme-setters/` |
+| `vendor/helpers/` | `/usr/share/fig/theme-setters/helpers/` |
 
 Not `~/.config/wweft/`. That is wweft's own directory, and these files are no
 more wweft's configuration than a script is bash's. wweft is a renderer that
@@ -67,7 +67,7 @@ The picker does the work, in this order.
    A theme's own files are taken as they are; what it leaves out is rendered
    from a template.
 2. Point the fixed paths at it. `~/.config/hedl/colors.lua` becomes a link
-   into the new theme, and micro's `tildesh.micro` is copied over. Both are
+   into the new theme, and micro's `fig.micro` is copied over. Both are
    read by name, so the name stays and the file behind it changes.
 3. Poke what we ship: foot by escape sequence on its own tty, btop by signal,
    GTK by gsettings, and swaybg for a theme that carries a picture.

@@ -11,7 +11,7 @@
 
 set -u
 
-target="${XDG_RUNTIME_DIR:-/tmp}/tildesh/capture-target"
+target="${XDG_RUNTIME_DIR:-/tmp}/fig/capture-target"
 
 if [[ -s $target ]]; then
 	cat "$target"

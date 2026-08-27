@@ -16,7 +16,7 @@ local palette = require("lib.palette")
 local config  = require("lib.settings")
 
 local HOME = os.getenv("HOME") or ""
-local FILE = HOME .. "/.config/tildesh-shell/lists/record.lua"
+local FILE = HOME .. "/.config/figshell/lists/record.lua"
 
 local c = palette.load()
 local BG    = palette.argb(c.background, 0xf2)

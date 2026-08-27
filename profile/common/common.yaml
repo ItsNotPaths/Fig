@@ -4,7 +4,7 @@
 # drivers, five filesystem toolkits and zsh. None of that boots a Wayland
 # desktop, so none of it is here.
 #
-# Everything in packages-base is installed into every tildesh profile.
+# Everything in packages-base is installed into every fig profile.
 
 packages-base:
   - base
@@ -61,7 +61,7 @@ packages-base:
 
 packages-apps: []
 
-# Only read when a profile declares a livefs section. tildesh does not.
+# Only read when a profile declares a livefs section. fig does not.
 packages-xorg: []
 packages-xlibre: []
 packages-misc: []

@@ -1,0 +1,17 @@
+--- a/pkg/omarchy-pkg-remove
++++ b/pkg/omarchy-pkg-remove
+@@ -12,6 +12,7 @@
+   --bind 'alt-p:toggle-preview'
+   --bind 'alt-d:preview-half-page-down,alt-u:preview-half-page-up'
+   --bind 'alt-k:preview-up,alt-j:preview-down'
++  --header 'Powered by Omarchy'\''s package tools (MIT). fig is not Omarchy.'
+   --color 'pointer:red,marker:red'
+ )
+ 
+@@ -20,5 +21,5 @@
+ if [[ -n $pkg_names ]]; then
+   # Convert newline-separated selections to space-separated for yay
+   echo "$pkg_names" | tr '\n' ' ' | xargs sudo pacman -Rns --noconfirm
+-  omarchy-show-done
++  omarchy-show-done $?
+ fi

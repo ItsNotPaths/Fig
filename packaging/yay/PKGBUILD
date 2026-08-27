@@ -1,0 +1,28 @@
+# Upstream's released x86_64 binary, fetched by download-deps.sh. Neither
+# Artix nor Arch packages yay, and building it needs a Go toolchain the image
+# has no other use for.
+#
+# base-devel is a hard dependency and not an optional one: yay without makepkg
+# can search the AUR and nothing else.
+pkgname=yay
+pkgver=${PKGVER:?PKGVER is not set}
+pkgrel=1
+pkgdesc="AUR helper. What omarchy drives its package tools with"
+arch=('x86_64')
+url="https://github.com/Jguer/yay"
+license=('GPL-3.0-or-later')
+depends=('glibc' 'pacman' 'git' 'base-devel')
+options=('!strip' '!debug')
+
+package() {
+	src="${STAGE:?STAGE is not set}"
+	install -Dm755 "$src/yay" "$pkgdir/usr/bin/yay"
+	install -Dm644 "$src/yay.8" "$pkgdir/usr/share/man/man8/yay.8"
+	install -Dm644 "$src/bash" "$pkgdir/usr/share/bash-completion/completions/yay"
+	install -Dm644 "$src/zsh" "$pkgdir/usr/share/zsh/site-functions/_yay"
+	install -Dm644 "$src/fish" "$pkgdir/usr/share/fish/vendor_completions.d/yay.fish"
+	for mo in "$src"/*.mo; do
+		lang=$(basename "$mo" .mo)
+		install -Dm644 "$mo" "$pkgdir/usr/share/locale/$lang/LC_MESSAGES/yay.mo"
+	done
+}

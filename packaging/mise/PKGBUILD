@@ -1,0 +1,27 @@
+# Upstream's released musl binary, fetched by download-deps.sh. In no Artix
+# repo, and compiling it would put a Rust toolchain on the build host for one
+# package.
+#
+# The binary is static-pie and depends on nothing. It is 97 MB unstripped and
+# 84 MB stripped, so unlike every other package here it is not !strip.
+#
+# bin/mise.d ships beside it and is a build artefact, a list of the source
+# paths the PGO run touched. It is not installed.
+pkgname=mise
+pkgver=${PKGVER:?PKGVER is not set}
+pkgrel=1
+pkgdesc="One tool for every runtime version, and the tasks and env that go with it"
+arch=('x86_64')
+url="https://github.com/jdx/mise"
+license=('MIT')
+depends=()
+options=('!debug')
+
+package() {
+	src="${STAGE:?STAGE is not set}"
+	install -Dm755 "$src/bin/mise" "$pkgdir/usr/bin/mise"
+	install -Dm644 "$src/man/man1/mise.1" "$pkgdir/usr/share/man/man1/mise.1"
+	install -Dm644 "$src/share/fish/vendor_conf.d/mise-activate.fish" \
+		"$pkgdir/usr/share/fish/vendor_conf.d/mise-activate.fish"
+	install -Dm644 "$src/LICENSE" "$pkgdir/usr/share/licenses/mise/LICENSE"
+}

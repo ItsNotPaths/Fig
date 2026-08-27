@@ -20,8 +20,15 @@
 -- The contents are ours. What omarchy names, omarchy runs, and none of those
 -- commands exist here; what survived the port is the shape and the wording.
 
-local shell = "wweft ~/.config/tildesh-shell/"
+local shell = "wweft ~/.config/figshell/"
 local edit  = "foot -e micro "
+-- The package panels are fzf, so they need a terminal. fzf and not a wweft
+-- surface on purpose: `yay -Slqa` is about ninety thousand names and fzf
+-- filters that incrementally with a matcher written for it. wweft has none,
+-- and lib/picker.lua filters in Lua, which is right for twenty themes.
+--
+-- Each panel ends on omarchy-show-done, so the window stays until a key.
+local term  = "foot -e "
 
 return {
 	-- Root
@@ -30,6 +37,7 @@ return {
 	{id = "trigger", icon = "󱓞", label = "Trigger"},
 	{id = "style",   icon = "",  label = "Style"},
 	{id = "setup",   icon = "",  label = "Setup"},
+	{id = "pkg",     icon = "󰏖", label = "Packages"},
 	{id = "system",  icon = "",  label = "System"},
 
 	-- Learn
@@ -47,6 +55,8 @@ return {
 	 action = "xdg-open https://devhints.io/bash"},
 
 	-- Trigger
+	{id = "trigger.clipboard", icon = "󰲝", label = "Clipboard history",
+	 action = shell .. "clipboard.lua"},
 	{id = "trigger.screenshot", icon = "", label = "Screenshot",
 	 action = "bar-actions screenshot"},
 	{id = "trigger.record", icon = "󰻂", label = "Record",
@@ -63,18 +73,34 @@ return {
 	{id = "style.theme",  icon = "󰸌", label = "Theme",  action = shell .. "theme-picker.lua"},
 	{id = "style.size",   icon = "", label = "Text size", action = shell .. "display.lua"},
 	{id = "style.config", icon = "", label = "Shell settings",
-	 action = edit .. "~/.config/tildesh-shell/config.lua"},
+	 action = edit .. "~/.config/figshell/config.lua"},
 
 	-- Setup
-	{id = "setup.display",   icon = "󰍹", label = "Display",   action = shell .. "display.lua"},
+	{id = "setup.display",   icon = "󰒓", label = "Settings",  action = shell .. "display.lua"},
+	-- The only surface here that is not ours. wlay drags the outputs around
+	-- and applies over wlr-output-management, which hedl already creates.
+	{id = "setup.monitors",  icon = "󰹑", label = "Monitors",  action = "wlay"},
 	{id = "setup.network",   icon = "󰛳", label = "Network",   action = shell .. "network.lua"},
 	{id = "setup.bluetooth", icon = "󰂯", label = "Bluetooth", action = shell .. "bluetooth.lua"},
 	{id = "setup.sound",     icon = "󰕾", label = "Sound",     action = shell .. "sound.lua"},
 	{id = "setup.keys",      icon = "", label = "Edit keybindings",
 	 action = edit .. "~/.config/hedl/hedl.lua"},
 
+	-- Packages. omarchy's panels, under their own names, so an upstream fix
+	-- to one arrives as a diff rather than a merge. Every label says what it
+	-- does on its own: a row found by searching is read without the trail
+	-- beside it, and the trail is there to say where it lives, not what it is.
+	{id = "pkg.install", icon = "󰏗", label = "Install package",
+	 action = term .. "omarchy-pkg-install"},
+	{id = "pkg.aur", icon = "󰣧", label = "Install AUR package",
+	 action = term .. "omarchy-pkg-aur-install"},
+	{id = "pkg.remove", icon = "󰆴", label = "Uninstall package",
+	 action = term .. "omarchy-pkg-remove"},
+	{id = "pkg.update", icon = "󰚰", label = "Update system packages",
+	 action = term .. "bash -c 'yay -Syu; omarchy-show-done $?'"},
+
 	-- System
-	{id = "system.lock",     icon = "",  label = "Lock",     action = "swaylock -f"},
+	{id = "system.lock",     icon = "",  label = "Lock",     action = "bar-actions lock"},
 	{id = "system.suspend",  icon = "󰒲", label = "Suspend",  action = "loginctl suspend"},
 	{id = "system.logout",   icon = "󰍃", label = "Log out",  kipp = "QUIT"},
 	{id = "system.reboot",   icon = "󰜉", label = "Reboot",   action = "loginctl reboot"},

@@ -3,14 +3,34 @@ Everything under this directory came from Omarchy and is not ours.
     https://github.com/basecamp/omarchy
     MIT
 
-The files are unmodified on purpose. `check.sh` compares them against the
-copy installed on this machine, so an upstream fix shows up as a diff rather
-than as a thing nobody noticed. Editing one here throws that away.
+None of it is committed. `download-deps.sh` fetches it at the pinned tag, so
+this tree holds no copy of somebody else's text.
+
+**What is committed is the difference.** `patches/` holds one patch for each
+file we changed, and `download-deps.sh` applies them after the copy. Editing a
+file here is fine; leaving the edit only here is not, because the next fetch
+overwrites it. Make the patch:
+
+    ./DE-shell/vendor/patches/make.sh omarchy-pkg-install
+
+A patch is less to carry than a fork of the file, and it fails loudly. When
+upstream moves the lines under it, `git apply` refuses and names the patch,
+which is the moment to look at what changed. A copy would have swallowed it.
+
+`MANIFEST` holds the sha256 of each file **as upstream wrote it**, before any
+patch, and `check.sh` compares those against the omarchy installed on this
+machine. So drift detection still works on a patched file: the manifest never
+describes our copy.
+
+`pkg/` is the package tools. Four answer a question about what is installed,
+three are fzf panels, and two are the helpers the panels source. They go to
+/usr/bin under their own names, because they call each other by name and
+because renaming them would turn every upstream fix into a merge.
 
 `setters/` is run when a theme is applied, one script for each application we
 do not ship. `helpers/` is on their PATH and is never run directly.
 
-Every one of them reads $HOME/.local/state/omarchy/current/theme. tildesh
+Every one of them reads $HOME/.local/state/omarchy/current/theme. fig
 links that path to its own theme directory rather than patching fifteen
 files.
 

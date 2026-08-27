@@ -1,5 +1,5 @@
 # micro's colourscheme, from the palette. ~/.config/micro/colorschemes/
-# tildesh.micro links here, and settings.json names it.
+# fig.micro links here, and settings.json names it.
 #
 # A running micro does not reread this. The next one does.
 color-link default "{{ foreground }},{{ background }}"

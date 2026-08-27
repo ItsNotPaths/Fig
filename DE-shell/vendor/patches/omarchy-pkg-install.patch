@@ -1,0 +1,27 @@
+--- a/pkg/omarchy-pkg-install
++++ b/pkg/omarchy-pkg-install
+@@ -12,9 +12,17 @@
+   --bind 'alt-p:toggle-preview'
+   --bind 'alt-d:preview-half-page-down,alt-u:preview-half-page-up'
+   --bind 'alt-k:preview-up,alt-j:preview-down'
++  --header 'Powered by Omarchy'\''s package tools (MIT). fig is not Omarchy.'
+   --color 'pointer:green,marker:green'
+ )
+ 
++# fig: the live image ships an empty /var/lib/pacman/sync, so `pacman -Slq`
++# prints nothing on a fresh boot and this panel would open with no rows in it.
++# The AUR panel does not need this: `yay -Slqa` asks the network.
++if [[ -z $(pacman -Slq 2>/dev/null | head -n1) ]]; then
++  sudo pacman -Sy
++fi
++
+ pkg_names=$(pacman -Slq | fzf "${fzf_args[@]}")
+ 
+ if [[ -n $pkg_names ]]; then
+@@ -22,5 +30,5 @@
+ 
+   # Convert newline-separated selections to space-separated for pacman
+   echo "$pkg_names" | tr '\n' ' ' | xargs sudo pacman -S --noconfirm
+-  omarchy-show-done
++  omarchy-show-done $?
+ fi

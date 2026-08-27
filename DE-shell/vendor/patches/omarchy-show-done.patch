@@ -1,0 +1,44 @@
+--- a/pkg/omarchy-show-done
++++ b/pkg/omarchy-show-done
+@@ -2,5 +2,40 @@
+ 
+ # omarchy:summary=Display a "Done!" message with a spinner and wait for user to press any key.
+ 
++# fig: the same spinning globe, drawn here rather than by `gum spin`.
++#
++# gum spin is a bubbletea program and reads the terminal for its own input, so
++# it swallows the key its own child is waiting on. Upstream's version only ever
++# closed because a *stale* key reached the child first: the Return that picked
++# the package in fzf is still queued minutes later, and `read -n 1` takes it
++# and returns inside the same frame. That is the "it closed on its own" bug,
++# and it is not fixable while gum is between the keyboard and the read.
++#
++# So: drain what is queued, then animate and read straight off /dev/tty. The
++# tty and not stdin, because this is called at the end of a pipeline.
++#
++# The exit status is an argument now. "Done!" after a failed install is the
++# wrong word, and the caller is the only one that knows which it was.
++
++if [[ ${1:-0} -eq 0 ]]; then
++  title="Done! Press any key to close..."
++else
++  title="Failed, exit $1. Press any key to close..."
++fi
++
++exec 3</dev/tty 2>/dev/null || exec 3<&0
++
++# Each read takes one queued key and returns 0. Nothing queued times out
++# non-zero, which is the buffer being empty and the loop being done.
++while read -r -s -n 1 -t 0.01 -u 3 _; do :; done
++
++frames=('🌍' '🌎' '🌏')
++i=0
+ echo
+-gum spin --spinner "globe" --title "Done! Press any key to close..." -- bash -c 'read -n 1 -s'
++printf '\e[?25l'                                  # hide the cursor
++trap 'printf "\e[?25h\n"' EXIT                    # and put it back, however we leave
++while :; do
++  printf '\r\e[38;5;97m%s\e[0m \e[38;5;180m%s\e[0m ' "${frames[i % 3]}" "$title"
++  read -n 1 -s -r -u 3 -t 0.25 && break
++  i=$((i + 1))
++done

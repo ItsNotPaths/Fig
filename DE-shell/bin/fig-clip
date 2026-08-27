@@ -1,0 +1,178 @@
+#!/bin/bash
+# The clipboard history: what has been copied, kept as files.
+#
+#   fig-clip watch        follow the clipboard. hedl's start hook runs this
+#   fig-clip store        one clip, on stdin. wl-paste --watch runs this
+#   fig-clip list         kind<TAB>id<TAB>what it says, newest first
+#   fig-clip path <id>    where that clip is, for anything that reads files
+#   fig-clip put <id>     make it the clipboard again
+#
+# Files and not a kippsrv adapter. kippsrv keeps what is *current* and a
+# history is a list, so it would be a poor fit for the model and an odd one to
+# read back. A directory is also still there after kippsrv restarts.
+#
+# The extension is the type. There are two, because there are two things a
+# person copies: text, and a picture.
+#
+# A third case looks like text and is a picture: the path to one. Copying a
+# screenshot out of a file manager, or a `grim` filename out of a terminal,
+# puts a path on the clipboard and not the bytes. `list` calls that an image
+# and `path` answers with the file it names, so a caller never has to know
+# which of the two it got.
+
+set -uo pipefail
+
+DIR="${XDG_STATE_HOME:-$HOME/.local/state}/fig/clipboard"
+KEEP=100          # clips. The oldest past this are deleted after each store
+PREVIEW=200       # characters of text kept for the list. The surface cuts more
+
+# What mpv will open. ffmpeg reads more than this; these are the ones worth
+# guessing about from a name alone.
+IMAGE_EXT='png|jpg|jpeg|webp|gif|bmp|avif|tif|tiff'
+
+# The one image a text clip names, or nothing.
+#
+# Deliberately tolerant about the shape, because every program writes a path
+# differently and none of them is wrong: a bare path, a trailing newline, a
+# `file://` URI with the spaces percent encoded, CRLF from a uri-list, several
+# of them at once when more than one file was picked. yazi, a file manager and
+# a terminal all disagree here.
+#
+# Strict about the substance: every line has to name a file that is really
+# there. That is what stops a paragraph mentioning a filename from becoming a
+# preview, and it is cheap because the answer is usually no on the first line.
+image_named_by() {
+	local line path first=""
+	local any=0
+
+	while IFS= read -r line || [ -n "$line" ]; do
+		line=${line%$'\r'}
+		# Leading and trailing space, which a trailing newline leaves too.
+		line=${line#"${line%%[![:space:]]*}"}
+		line=${line%"${line##*[![:space:]]}"}
+		[ -z "$line" ] && continue
+
+		path=$(unpath "$line")
+		[ -f "$path" ] || return 1
+		any=1
+		if [ -z "$first" ] && printf '%s' "$path" | grep -qiE "\\.($IMAGE_EXT)\$"; then
+			first=$path
+		fi
+	done < "$1"
+
+	[ "$any" = 1 ] && [ -n "$first" ] || return 1
+	printf '%s' "$first"
+}
+
+# One line as a program wrote it, turned back into a path.
+unpath() {
+	local t=$1
+	case "$t" in
+		file://localhost/*) t=/${t#file://localhost/} ;;
+		file:///*)          t=${t#file://} ;;
+		file://*)           t=${t#file://} ;;
+		'~'/*)              t="$HOME/${t#'~'/}" ;;
+	esac
+	# Percent encoding, which only a URI has. printf turns \xNN into a byte.
+	case "$1" in
+		file://*) t=$(printf '%b' "${t//%/\\x}") ;;
+	esac
+	printf '%s' "$t"
+}
+
+newest() { ls -1 "$DIR" 2>/dev/null | sort -r | head -n1; }
+
+store() {
+	mkdir -p "$DIR" || exit 1
+
+	# wl-paste hands us the clipboard in its preferred type, so what is on
+	# stdin is already the right bytes. --list-types only says which.
+	local ext=txt
+	case "$(wl-paste --list-types 2>/dev/null)" in
+		*image/png*)  ext=png ;;
+		*image/jpeg*) ext=jpg ;;
+	esac
+
+	local tmp
+	tmp=$(mktemp "$DIR/.incoming.XXXXXX") || exit 1
+	cat > "$tmp"
+
+	# An empty clip is not a clip. Copying the same thing twice is one.
+	if [ ! -s "$tmp" ]; then rm -f "$tmp"; return; fi
+	local last
+	last=$(newest)
+	if [ -n "$last" ] && cmp -s "$tmp" "$DIR/$last"; then rm -f "$tmp"; return; fi
+
+	# Nanoseconds, so the name sorts by age and two clips in one second are
+	# still two clips.
+	mv "$tmp" "$DIR/$(date +%s%N).$ext"
+
+	# shellcheck disable=SC2012
+	ls -1 "$DIR" 2>/dev/null | sort -r | tail -n +$((KEEP + 1)) | while read -r old; do
+		rm -f "$DIR/$old"
+	done
+}
+
+# One line a clip. Text is squeezed onto one line here rather than in the
+# surface, because a tab or a newline inside a clip would otherwise look like
+# the end of a field.
+list() {
+	[ -d "$DIR" ] || return 0
+	local f kind what
+	while read -r f; do
+		case "$f" in
+			*.png | *.jpg)
+				kind=image
+				what="image, $(du -h "$DIR/$f" | cut -f1)"
+				;;
+			*)
+				kind=text
+				what=$(tr '\n\t\r' '   ' < "$DIR/$f" | head -c "$PREVIEW" |
+				       sed 's/  */ /g; s/^ //; s/ $//')
+				image_named_by "$DIR/$f" >/dev/null && kind=image
+				;;
+		esac
+		[ -n "$what" ] && printf '%s\t%s\t%s\n' "$kind" "$f" "$what"
+	done < <(ls -1 "$DIR" 2>/dev/null | sort -r)
+}
+
+# A caller passes an id back to us, so it never gets to name a path of its own.
+clip_file() {
+	case "$1" in
+		*/* | .* | "") exit 1 ;;
+	esac
+	[ -f "$DIR/$1" ] || exit 1
+	printf '%s/%s' "$DIR" "$1"
+}
+
+# Where the picture is. For a clip that holds the bytes that is the clip
+# itself; for one that holds a path it is the file named, because a viewer
+# wants the picture and not a text file with a name in it.
+resolve() {
+	local f; f=$(clip_file "$1") || exit 1
+	case "$f" in
+		*.png | *.jpg) printf '%s' "$f"; return ;;
+	esac
+	image_named_by "$f" || printf '%s' "$f"
+}
+
+put() {
+	local p; p=$(clip_file "$1") || exit 1
+	case "$p" in
+		*.png) wl-copy --type image/png  < "$p" ;;
+		*.jpg) wl-copy --type image/jpeg < "$p" ;;
+		*)     wl-copy                   < "$p" ;;
+	esac
+}
+
+case "${1:-}" in
+	watch) exec wl-paste --watch fig-clip store ;;
+	store) store ;;
+	list)  list ;;
+	path)  resolve "${2:-}" ;;
+	put)   put "${2:-}" ;;
+	*)
+		echo "usage: fig-clip <watch|store|list|path ID|put ID>" >&2
+		exit 1
+		;;
+esac

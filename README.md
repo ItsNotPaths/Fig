@@ -1,8 +1,8 @@
-# tildesh
+# fig
 
 An Artix image that boots to a Wayland session and nothing else.
 
-tildesh is a desktop made of three programs — a window manager (`hedl`, a dwl
+fig is a desktop made of three programs — a window manager (`hedl`, a dwl
 fork), a shell (`kippsrv`) and a renderer (`wweft`) — that speak one line
 protocol. This repo is the ground they stand on: the package list, the ISO,
 and a self test that checks the image on the image.
@@ -18,7 +18,7 @@ One rule: **nothing of ours goes in `/etc`.**
 | --- | --- | --- |
 | authored | `~/.config/<name>/` | `~/.config/hedl/hedl.lua` |
 | runtime state | `$XDG_RUNTIME_DIR/<name>/` | `/run/user/1000/hedl/kipp` |
-| durable state | `~/.local/state/<name>/` | `~/.local/state/tildesh/theme/` |
+| durable state | `~/.local/state/<name>/` | `~/.local/state/fig/theme/` |
 | installed | `/usr/share/<name>/` | `/usr/share/kippsrv/lua/` |
 | on PATH | `/usr/bin/` | `/usr/bin/bar-actions` |
 
@@ -26,7 +26,7 @@ One rule: **nothing of ours goes in `/etc`.**
 and `passwd`. A window manager's key table is not one, and `/etc/skel` is the
 exception that proves it: a surface has to be the user's copy to be editable.
 
-`kippsrv.lua` used to live in `/etc/tildesh/`. It is the reason this is written
+`kippsrv.lua` used to live in `/etc/fig/`. It is the reason this is written
 down.
 
 ## Build
@@ -63,7 +63,7 @@ pacman cache and the chroot copies live in docker volumes, so the second build
 is much faster. Any argument is passed to `buildiso`; `-q` prints the settings
 and builds nothing.
 
-The image lands in `dist/tildesh/`.
+The image lands in `dist/fig/`.
 
 ## Run it
 
@@ -71,7 +71,7 @@ The image is a UEFI live ISO. Boot it in any virtual machine with EFI firmware
 and a GPU device. hedl wants a GPU: virtio-vga-gl is the fast path, and a plain
 VGA card works on llvmpipe, because the image carries vulkan-swrast.
 
-The live user is `tildesh`, the password is `tildesh`, and tty1 logs itself in
+The live user is `fig`, the password is `fig`, and tty1 logs itself in
 and starts hedl.
 
 The image also runs a getty on ttyS0. A machine given a serial console needs
@@ -96,7 +96,7 @@ It is also the answer to whether wweft can read kippsrv without new C:
 
 ## Self test
 
-`tildesh-selftest` is on the image, at `/usr/local/bin`. It runs hedl on the
+`fig-selftest` is on the image, at `/usr/local/bin`. It runs hedl on the
 headless wlroots backend, so it needs no GPU, no seat and no monitor. Run it
 over ssh, in a VM, or from tty2 while the desktop is up. Its exit status is the
 number of failed checks.
@@ -135,7 +135,7 @@ loop: build hedl in its own tree and point at it.
 
 ```sh
 PATH=../hedl-wm:$PATH \
-    profile/tildesh/root-overlay/usr/local/bin/tildesh-selftest
+    profile/fig/root-overlay/usr/local/bin/fig-selftest
 ```
 
 ## Super special thanks

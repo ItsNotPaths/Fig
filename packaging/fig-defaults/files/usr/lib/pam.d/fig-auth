@@ -1,0 +1,11 @@
+# What fig-auth asks, so the lock screen can check a password.
+#
+# /usr/lib/pam.d and not /etc/pam.d: pam 1.7 reads both, the vendor one first,
+# and a service with no file of its own falls through to `other`, which denies
+# everything. So the file has to exist and this is the copy that is ours.
+#
+# system-auth is the stack every other login on the machine uses. Naming it
+# rather than listing modules means a change to how this machine authenticates
+# reaches the lock screen too.
+auth     include  system-auth
+account  include  system-auth

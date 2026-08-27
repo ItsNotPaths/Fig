@@ -63,11 +63,11 @@ local CENTRE = {
 	{icon = "󰢌", run = ""},                            -- reminder, wants a surface
 	{icon = "󰅶", run = "bar-actions stayawake", on = "stayawake"},
 	{icon = "",  clock = true, close = true,
-	 run = "wweft ~/.config/tildesh-shell/calendar.lua"},
+	 run = "wweft ~/.config/figshell/calendar.lua"},
 	{icon = "󰻂", run = "bar-actions record", on = "recording", close = true},
 	{icon = "",  run = "bar-actions screenshot", close = true},
 	{icon = "󰖐", weather = true, close = true,
-	 run = "wweft ~/.config/tildesh-shell/weather.lua"},
+	 run = "wweft ~/.config/figshell/weather.lua"},
 }
 -- Which piece the clock is. Found rather than written down, so adding a glyph
 -- to the left of it is one line and not two.
@@ -83,12 +83,12 @@ end
 -- has been read, which is the whole of what the bar says about a notification.
 -- Reading one means opening the panel, so the bar never has to draw a body.
 local RIGHT = {
-	{icon = "󰅀", run = "wweft ~/.config/tildesh-shell/tray.lua", close = true},
-	{icon = "󰂯", run = "wweft ~/.config/tildesh-shell/bluetooth.lua", close = true},
-	{icon = "󰤨", run = "wweft ~/.config/tildesh-shell/network.lua", close = true},
-	{icon = "󰕾", run = "wweft ~/.config/tildesh-shell/sound.lua", close = true},
-	{icon = "󰍹", run = "wweft ~/.config/tildesh-shell/display.lua", close = true},
-	{notif = true, run = "wweft ~/.config/tildesh-shell/notifications.lua",
+	{icon = "󰅀", run = "wweft ~/.config/figshell/tray.lua", close = true},
+	{icon = "󰂯", run = "wweft ~/.config/figshell/bluetooth.lua", close = true},
+	{icon = "󰤨", run = "wweft ~/.config/figshell/network.lua", close = true},
+	{icon = "󰕾", run = "wweft ~/.config/figshell/sound.lua", close = true},
+	{icon = "󰍹", run = "wweft ~/.config/figshell/display.lua", close = true},
+	{notif = true, run = "wweft ~/.config/figshell/notifications.lua",
 	 close = true},
 }
 
@@ -104,7 +104,7 @@ local LIT  = palette.style("accent", "background")
 
 -- Which toggles are on. bar-actions writes it and moves it into place, and
 -- wweft watches the directory, so the file does not have to exist yet.
-local STATE = (os.getenv("XDG_RUNTIME_DIR") or "/tmp") .. "/tildesh"
+local STATE = (os.getenv("XDG_RUNTIME_DIR") or "/tmp") .. "/fig"
 local INDICATORS = STATE .. "/indicators"
 
 local cfg = config.load()
@@ -354,7 +354,7 @@ config.export()          -- the bar is the shell's long-lived process
 -- and no micro colourscheme. The shell themes itself once rather than
 -- leaving everything on its built-in fallbacks. Loaded only when it is
 -- needed, because the engine is no use to a bar otherwise.
-local applied = io.open(os.getenv("HOME") .. "/.local/state/tildesh/theme/tildesh.lua")
+local applied = io.open(os.getenv("HOME") .. "/.local/state/fig/theme/fig.lua")
 if applied then
 	applied:close()
 else

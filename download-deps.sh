@@ -1,5 +1,5 @@
 #!/bin/sh
-# Get everything tildesh builds against. Run this once after you clone.
+# Get everything fig builds against. Run this once after you clone.
 #
 # Nothing it writes is source. vendor/ is gitignored and so is everything this
 # puts under DE-shell, and all of it can be deleted and fetched again.
@@ -35,10 +35,36 @@ omarchy-theme-set-keyboard-f16 omarchy-toggle-enabled"
 NERD_VERSION=v3.5.1
 NERD_FACES="Regular Bold Italic BoldItalic"
 
+# The package tools. Four are scriptable and answer a question about what is
+# installed; three are fzf panels a person drives. They call each other by
+# name, so all of them go on PATH, and so do the two helpers the panels source.
+OMARCHY_PKG="omarchy-pkg-add omarchy-pkg-aur-accessible omarchy-pkg-aur-add
+omarchy-pkg-aur-install omarchy-pkg-drop omarchy-pkg-install
+omarchy-pkg-missing omarchy-pkg-present omarchy-pkg-remove
+omarchy-show-done omarchy-sudo-keepalive"
+
+# yay and mise. Neither is in an Artix repo, and neither is worth compiling:
+# both publish a prebuilt x86_64 binary with every release. packaging/ wraps
+# what lands here, the same way it wraps the font.
+#
+# mise is taken as the musl build, which is static-pie and links nothing. The
+# glibc build is the same size and would tie the package to a libc version for
+# no gain.
+YAY_VERSION=v13.0.1
+MISE_VERSION=v2026.8.12
+
+# wlay. Monitor arrangement with the outputs drawn as rectangles, and the only
+# graphical one that is not GTK: GLFW and nuklear, straight onto
+# wlr-output-management, which hedl already creates. It has never tagged a
+# release, so the pin is a commit.
+WLAY=https://github.com/atx/wlay.git
+WLAY_VERSION=ed316060ac3ac122c0d3d8918293e19dfe9a6c90
+
 force=0
 [ "${1:-}" = "--force" ] && force=1
 
 say() { printf '==> %s\n' "$1"; }
+die() { printf 'download-deps.sh: %s\n' "$1" >&2; exit 1; }
 
 mkdir -p "$vendor"
 
@@ -86,6 +112,52 @@ else
 	say "iosevka: $(du -sh "$dir" | cut -f1) in $(find "$dir" -name '*.ttf' | wc -l) faces"
 fi
 
+# --------------------------------------------------------------- yay + mise
+#
+# Released binaries, unpacked flat. yay links libc and libresolv and nothing
+# else: version 13 dropped go-alpm and drives pacman as a command, so it is not
+# tied to a libalpm soname. mise links nothing at all.
+
+# name, archive flag, path of the binary inside the unpacked tree, url.
+fetch_release() {
+	name=$1 flag=$2 bin=$3 url=$4
+	dir="$vendor/$name"
+	if [ "$force" = 1 ]; then rm -rf "$dir"; fi
+	if [ -x "$dir/$bin" ]; then
+		say "$name: already present"
+		return
+	fi
+	say "$name: fetching"
+	rm -rf "$dir"
+	mkdir -p "$dir"
+	curl -fsSL "$url" | tar "x${flag}" -C "$dir" --strip-components=1
+	[ -x "$dir/$bin" ] || die "$name: no $bin in the archive"
+}
+
+fetch_release yay z yay \
+	"https://github.com/Jguer/yay/releases/download/$YAY_VERSION/yay_${YAY_VERSION#v}_x86_64.tar.gz"
+
+fetch_release mise J bin/mise \
+	"https://github.com/jdx/mise/releases/download/$MISE_VERSION/mise-$MISE_VERSION-linux-x64-musl.tar.xz"
+
+# --------------------------------------------------------------------- wlay
+#
+# Source, not a binary: nobody publishes one. nuklear and wlr-protocols are
+# submodules and their commits are recorded in wlay's tree, so a recursive
+# checkout at the pin gets the same three trees every time.
+
+dir="$vendor/wlay"
+if [ "$force" = 1 ]; then rm -rf "$dir"; fi
+if [ -f "$dir/main.c" ]; then
+	say "wlay: already present"
+else
+	say "wlay: cloning $(printf '%.7s' "$WLAY_VERSION")"
+	rm -rf "$dir"
+	git clone --quiet "$WLAY" "$dir"
+	git -C "$dir" checkout --quiet "$WLAY_VERSION"
+	git -C "$dir" submodule update --quiet --init --recursive
+fi
+
 # ------------------------------------------------------------- omarchy
 #
 # Into DE-shell, not vendor/, because the tree is what build-packages.sh reads
@@ -123,5 +195,34 @@ mkdir -p "$shell/vendor/setters" "$shell/vendor/helpers"
 for f in $OMARCHY_SETTERS; do cp "$dir/bin/$f" "$shell/vendor/setters/$f"; done
 for f in $OMARCHY_HELPERS; do cp "$dir/bin/$f" "$shell/vendor/helpers/$f"; done
 chmod +x "$shell/vendor/setters"/* "$shell/vendor/helpers"/*
+
+say "omarchy: package tools"
+mkdir -p "$shell/vendor/pkg"
+for f in $OMARCHY_PKG; do cp "$dir/bin/$f" "$shell/vendor/pkg/$f"; done
+chmod +x "$shell/vendor/pkg"/*
+
+# --------------------------------------------------------- our edits to them
+#
+# The vendored files are somebody else's and are not committed. What is
+# committed is the difference: one patch for each file we changed, applied
+# here, on top of the copy that was just made.
+#
+# A patch is much less to carry than a fork of the file, and it fails loudly.
+# When upstream moves the lines under it, `git apply` refuses and says which
+# patch, which is the moment to look. A copy would have swallowed the change
+# in silence.
+#
+# `patches/make.sh` is how one is made or remade. See vendor/NOTICE.
+patches="$shell/vendor/patches"
+if [ -n "$(find "$patches" -name '*.patch' 2>/dev/null | head -1)" ]; then
+	say "omarchy: patches"
+	for p in "$patches"/*.patch; do
+		git -C "$shell/vendor" apply "$p" \
+			|| die "$(basename "$p") does not apply. Upstream moved: remake it with patches/make.sh"
+		say "  $(basename "$p" .patch)"
+	done
+else
+	say "omarchy: no patches, the vendored files are upstream's"
+fi
 
 say "done"

@@ -13,12 +13,22 @@ set -u
 
 PICTURES="${XDG_PICTURES_DIR:-$HOME/Pictures}"
 VIDEOS="${XDG_VIDEOS_DIR:-$HOME/Videos}"
-STATE="${XDG_RUNTIME_DIR:-/tmp}/tildesh"
+STATE="${XDG_RUNTIME_DIR:-/tmp}/fig"
+
+# What locks the screen. A wweft surface holding the ext-session-lock role,
+# so it is themed like everything else and nothing of Hyprland is involved.
+#
+# Written once here because three things reach for it: the key, the menu row
+# and the idle timeout.
+#
+# It fails by leaving the session locked rather than open, which is the right
+# way round: there is no second lock on the image to fall back to.
+LOCK=(wweft "$HOME/.config/figshell/lock.lua")
 
 # The lock is on a timeout, and the stay-awake toggle turns the daemon off, so
 # both need the same line. It is written once, here, and hedl's start hook
 # calls the verb rather than repeating it.
-IDLE=(swayidle -w timeout 600 "swaylock -f")
+IDLE=(swayidle -w timeout 600 "bar-actions lock")
 
 # pkill and pgrep match a process name truncated to 15 characters, and this
 # one is 19, so -x can never match it. -f matches the command line instead,
@@ -55,6 +65,10 @@ indicators() {
 	} >"$STATE/indicators.new"
 	mv "$STATE/indicators.new" "$STATE/indicators"
 }
+
+# Not setsid -f: the lock has to be the thing that holds the session, and a
+# caller that waits is how a caller knows it ended.
+lock() { "${LOCK[@]}"; }
 
 idle() { setsid -f "${IDLE[@]}"; indicators; }
 
@@ -96,7 +110,7 @@ record() {
 		say "mpv $out" "Recording saved" "${out##*/}"
 		return 0
 	fi
-	setsid -f wweft "$HOME/.config/tildesh-shell/record.lua"
+	setsid -f wweft "$HOME/.config/figshell/record.lua"
 }
 
 # Start one, as the popup asked for it.
@@ -159,9 +173,9 @@ capture() {
 
 case "${1:-}" in
 capture) shift; capture "$@" ;;
-idle | indicators | nightlight | stayawake | screenshot | record) "$1" ;;
+lock | idle | indicators | nightlight | stayawake | screenshot | record) "$1" ;;
 *)
-	echo "usage: bar-actions <idle|nightlight|stayawake|screenshot|record>" >&2
+	echo "usage: bar-actions <lock|idle|nightlight|stayawake|screenshot|record>" >&2
 	echo "       bar-actions capture <none|system|mic> <mon:NAME|win:ID>..." >&2
 	exit 1
 	;;

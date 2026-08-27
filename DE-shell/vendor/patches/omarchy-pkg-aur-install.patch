@@ -1,0 +1,17 @@
+--- a/pkg/omarchy-pkg-aur-install
++++ b/pkg/omarchy-pkg-aur-install
+@@ -14,6 +14,7 @@
+   --bind 'alt-k:preview-up,alt-j:preview-down'
+   --bind 'alt-b:change-preview:yay -Gpa {1} | tail -n +5'
+   --bind 'alt-B:change-preview:yay -Siia {1}'
++  --header 'Powered by Omarchy'\''s package tools (MIT). fig is not Omarchy.'
+   --color 'pointer:green,marker:green'
+ )
+ 
+@@ -25,5 +26,5 @@
+ 
+   echo "$pkg_names" | sed 's/^/aur\//' | tr '\n' ' ' | xargs yay -S --noconfirm
+   sudo updatedb
+-  omarchy-show-done
++  omarchy-show-done $?
+ fi

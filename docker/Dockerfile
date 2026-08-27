@@ -2,12 +2,15 @@
 # container runs --privileged. Nothing else here is unusual.
 FROM artixlinux/artixlinux:base-devel
 
-# The second and third lines are hedl's build and link dependencies. makepkg
-# runs --nodeps in here, so anything it needs has to be in the image already.
+# makepkg runs --nodeps in here, so anything a package needs to build has to be
+# in the image already. Lines two and three are hedl's, line four is wlay's:
+# extra-cmake-modules only for its FindWayland and FindWaylandScanner modules,
+# which is what wlay's CMakeLists asks for.
 RUN pacman -Syu --noconfirm --needed \
         artools-iso git jq \
         wlroots0.20 wayland wayland-protocols libxkbcommon libinput \
         libxcb xcb-util-wm lua54 \
+        cmake extra-cmake-modules pkgconf glfw libepoxy \
     && pacman -Scc --noconfirm
 
 # artools 0.39.1: configure_calamares() ends on a directory test, so a profile
@@ -38,9 +41,9 @@ RUN printf '%s\n' \
 # copied into the tree, so an Artix mirror change is not ours to track.
 # file:///repo is a bind mount, and it is signed by nobody.
 RUN mkdir -p /root/.config/artools/pacman.conf.d \
-    && sed '/^\[system\]/i [tildesh]\nSigLevel = Optional TrustAll\nServer = file:///repo\n' \
+    && sed '/^\[system\]/i [fig]\nSigLevel = Optional TrustAll\nServer = file:///repo\n' \
         /usr/share/artools/pacman.conf.d/iso-x86_64.conf \
         > /root/.config/artools/pacman.conf.d/iso-x86_64.conf \
-    && grep -q '^\[tildesh\]' /root/.config/artools/pacman.conf.d/iso-x86_64.conf
+    && grep -q '^\[fig\]' /root/.config/artools/pacman.conf.d/iso-x86_64.conf
 
 WORKDIR /workspace
