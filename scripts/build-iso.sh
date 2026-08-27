@@ -14,7 +14,10 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
-docker image inspect fig-build >/dev/null 2>&1 || "$root/scripts/build-host.sh"
+# Rebuilt when the Dockerfile moved under it, not only when it is missing.
+want=$(sha256sum "$root/docker/Dockerfile" | cut -c1-16)
+have=$(docker image inspect fig-build --format '{{index .Config.Labels "fig.dockerfile"}}' 2>/dev/null || true)
+[ "$have" = "$want" ] || "$root/scripts/build-host.sh"
 
 mkdir -p "$root/dist" "$root/repo"
 
@@ -23,6 +26,9 @@ mkdir -p "$root/dist" "$root/repo"
 	exit 1
 }
 
+# The container gets its own /dev, populated once when it starts. A loop
+# device the kernel allocates later exists in the host and not in here, and
+# the EFI image is mounted over one, so the nodes are made up front.
 # The container gets its own /dev, populated once when it starts. A loop
 # device the kernel allocates later exists in the host and not in here, and
 # the EFI image is mounted over one, so the nodes are made up front.
