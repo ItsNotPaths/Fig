@@ -187,6 +187,22 @@ rootfs:
     - artix-grub-live
     - squashfs-tools
 
+    # What the installer needs. artools-base is basestrap, fstabgen and
+    # artix-chroot, which are Artix's pacstrap, genfstab and arch-chroot;
+    # archinstall and arch-install-scripts are in no Artix repo, so the
+    # installer is ours either way.
+    #
+    # grub and efibootmgr are here for the target rather than the live image:
+    # basestrap puts them in the new root, and grub-install runs in the chroot.
+    - artools-base
+    - cryptsetup
+    - btrfs-progs
+    - dosfstools
+    - parted
+    - gptfdisk
+    - grub
+    - efibootmgr
+
   packages-init:
     runit:
       - networkmanager-runit
