@@ -175,3 +175,9 @@ hedl.bind("XF86MonBrightnessDown", nil, hedl.dsp.spawn("brightnessctl set 5%-"))
 hedl.bind("XF86AudioRaiseVolume",  nil, hedl.dsp.spawn("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+"))
 hedl.bind("XF86AudioLowerVolume",  nil, hedl.dsp.spawn("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"))
 hedl.bind("XF86AudioMute",         nil, hedl.dsp.spawn("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"))
+
+-- A Lua config replaces the whole key table, so these are not inherited from
+-- config.h. Without them there is no way off the seat.
+for i = 1, 12 do
+  hedl.bind("CTRL + ALT + XF86Switch_VT_" .. i, nil, hedl.dsp.chvt(i))
+end
