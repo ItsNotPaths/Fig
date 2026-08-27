@@ -1,0 +1,226 @@
+#!/bin/bash
+# fig-install - put fig on a disk.
+#
+# The whole of it is here and none of it is in a surface. The wweft installer
+# writes an answer file and watches the log; this reads the answer file and
+# does the work. That split is what makes it testable in a VM with no screen,
+# and what stops a crashed surface from stranding a half-installed disk.
+#
+#   fig-install --answers <file> [--dry-run] [--yes]
+#
+# The answer file is shell, so a Lua surface writes it with string.format and
+# nothing has to parse anything:
+#
+#   FIG_MODE=whole-disk          whole-disk | use-partition
+#   FIG_DISK=/dev/vda            whole-disk: the disk to erase
+#   FIG_ROOT_PART=/dev/vda2      use-partition: what to put the root on
+#   FIG_ESP_PART=/dev/vda1       use-partition: an ESP that already exists
+#   FIG_LUKS_PASS_FILE=/run/x    the passphrase, its own file, mode 600
+#
+# Passphrases are never in the answer file. It is written to disk to be read
+# back and logged; the passphrase is read once from a file under /run.
+set -uo pipefail
+
+ESP_SIZE=1GiB
+SUBVOLS="@ @home @snapshots @log @pkg"
+MOUNT=/mnt
+
+dry=0 yes=0 answers=""
+while [ $# -gt 0 ]; do
+	case "$1" in
+	--answers) shift; answers=${1:-} ;;
+	-n | --dry-run) dry=1 ;;
+	-y | --yes) yes=1 ;;
+	-h | --help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+	*) echo "fig-install: unknown argument $1" >&2; exit 2 ;;
+	esac
+	shift
+done
+
+say()  { printf '==> %s\n' "$*"; }
+die()  { printf 'fig-install: %s\n' "$*" >&2; exit 1; }
+run()  { if [ "$dry" = 1 ]; then printf '    would: %s\n' "$*"; else "$@" || die "failed: $*"; fi; }
+
+[ "$(id -u)" = 0 ] || die "needs root"
+[ -n "$answers" ] || die "no --answers file"
+[ -r "$answers" ] || die "cannot read $answers"
+
+# Sourced, so it is shell and not a format anyone has to write a parser for.
+# It is also arbitrary code, which is why the surface writes it and nothing
+# else does.
+# shellcheck disable=SC1090
+. "$answers"
+
+: "${FIG_MODE:?FIG_MODE is not set}"
+
+# --------------------------------------------------------------- refusals
+#
+# Every one of these has to pass before a single byte is written. They are
+# here rather than beside the thing they guard so that the whole list can be
+# read at once, which is the only way anyone checks it.
+
+booted_disk() {
+	# What the live system is running from, so it is never the target.
+	local src
+	src=$(findmnt -no SOURCE / 2>/dev/null) || return 0
+	case "$src" in
+	/dev/*) lsblk -no PKNAME "$src" 2>/dev/null | head -1 ;;
+	*) # A live ISO roots on a loop or an overlay. Follow the ISO instead.
+	   findmnt -no SOURCE /run/artix/bootmnt 2>/dev/null |
+		   sed 's|^/dev/||;s|[0-9]*$||' ;;
+	esac
+}
+
+refuse_if_in_use() {
+	local dev=$1 held
+	held=$(lsblk -nro MOUNTPOINT "$dev" 2>/dev/null | grep -v '^$' | tr '\n' ' ')
+	[ -z "$held" ] || die "$dev has something mounted on it: $held"
+}
+
+refuse_if_booted() {
+	local dev=$1 boot
+	boot=$(booted_disk)
+	[ -n "$boot" ] || return 0
+	case "$dev" in
+	*"$boot"*) die "$dev is what this system booted from" ;;
+	esac
+}
+
+case "$FIG_MODE" in
+whole-disk)
+	: "${FIG_DISK:?FIG_DISK is not set}"
+	[ -b "$FIG_DISK" ] || die "$FIG_DISK is not a block device"
+	[ -z "$(lsblk -nro TYPE "$FIG_DISK" | grep -x part)" ] ||
+		lsblk -nro TYPE "$FIG_DISK" | grep -qx disk ||
+		die "$FIG_DISK is not a whole disk"
+	refuse_if_booted "$FIG_DISK"
+	refuse_if_in_use "$FIG_DISK"
+	target=$FIG_DISK
+	;;
+use-partition)
+	: "${FIG_ROOT_PART:?FIG_ROOT_PART is not set}"
+	: "${FIG_ESP_PART:?FIG_ESP_PART is not set, and use-partition cannot make one}"
+	[ -b "$FIG_ROOT_PART" ] || die "$FIG_ROOT_PART is not a block device"
+	[ -b "$FIG_ESP_PART" ]  || die "$FIG_ESP_PART is not a block device"
+	# The ESP is reused and never formatted: on a dual-boot machine it holds
+	# somebody else's bootloader, and fig's job is to land beside it.
+	[ "$(lsblk -nro FSTYPE "$FIG_ESP_PART")" = vfat ] ||
+		die "$FIG_ESP_PART is not a FAT filesystem, so it is not an ESP"
+	refuse_if_booted "$FIG_ROOT_PART"
+	refuse_if_in_use "$FIG_ROOT_PART"
+	refuse_if_in_use "$FIG_ESP_PART"
+	target=$FIG_ROOT_PART
+	;;
+*) die "FIG_MODE is '$FIG_MODE', not whole-disk or use-partition" ;;
+esac
+
+: "${FIG_LUKS_PASS_FILE:?FIG_LUKS_PASS_FILE is not set}"
+[ -r "$FIG_LUKS_PASS_FILE" ] || die "cannot read $FIG_LUKS_PASS_FILE"
+[ -s "$FIG_LUKS_PASS_FILE" ] || die "$FIG_LUKS_PASS_FILE is empty"
+
+# --------------------------------------------------------------- consent
+say "target: $target ($FIG_MODE)"
+echo
+lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT "${FIG_DISK:-$FIG_ROOT_PART}" 2>/dev/null
+echo
+if [ "$FIG_MODE" = whole-disk ]; then
+	say "everything above is erased."
+else
+	say "$FIG_ROOT_PART is erased. $FIG_ESP_PART is written to but not formatted."
+fi
+
+if [ "$dry" = 0 ] && [ "$yes" = 0 ]; then
+	printf 'Type ERASE to go ahead: '
+	read -r reply
+	[ "$reply" = ERASE ] || die "not confirmed"
+fi
+
+# ------------------------------------------------------------- partition
+part_path() {
+	# nvme and mmc put a p between the disk and the number. Taken from
+	# omarchy-iso's disk-partitioning.sh, which learned it the hard way.
+	case "$1" in
+	*nvme* | *mmcblk*) printf '%sp%s' "$1" "$2" ;;
+	*) printf '%s%s' "$1" "$2" ;;
+	esac
+}
+
+wait_for_device() {
+	local i
+	for i in $(seq 1 10); do
+		[ -b "$1" ] && return 0
+		udevadm settle 2>/dev/null || true
+		sleep 1
+	done
+	die "$1 never appeared"
+}
+
+if [ "$FIG_MODE" = whole-disk ]; then
+	say "partitioning $FIG_DISK"
+	run wipefs --all --force "$FIG_DISK"
+	run sgdisk --zap-all "$FIG_DISK"
+	run sgdisk \
+		--new=1:0:+$ESP_SIZE --typecode=1:ef00 --change-name=1:FIGBOOT \
+		--new=2:0:0         --typecode=2:8309 --change-name=2:FIGROOT \
+		"$FIG_DISK"
+	run partprobe "$FIG_DISK"
+	esp=$(part_path "$FIG_DISK" 1)
+	root=$(part_path "$FIG_DISK" 2)
+	[ "$dry" = 1 ] || wait_for_device "$esp"
+	[ "$dry" = 1 ] || wait_for_device "$root"
+	say "formatting the ESP"
+	run mkfs.fat -F32 -n FIGBOOT "$esp"
+else
+	esp=$FIG_ESP_PART
+	root=$FIG_ROOT_PART
+fi
+
+# ------------------------------------------------------------------ luks
+#
+# luks2 with cryptsetup's own defaults. The argon2id cost is measured against
+# the machine doing the formatting, which here is the machine that will be
+# unlocking it, so there is nothing to tune and nothing to get wrong.
+say "encrypting $root"
+if [ "$dry" = 1 ]; then
+	echo "    would: cryptsetup luksFormat --type luks2 $root"
+	echo "    would: cryptsetup open $root cryptroot"
+else
+	cryptsetup luksFormat --type luks2 --batch-mode \
+		--key-file "$FIG_LUKS_PASS_FILE" "$root" || die "luksFormat failed"
+	cryptsetup open --key-file "$FIG_LUKS_PASS_FILE" "$root" cryptroot ||
+		die "cryptsetup open failed"
+fi
+mapper=/dev/mapper/cryptroot
+
+# ----------------------------------------------------------------- btrfs
+#
+# The subvolume layout is the one decision here that is expensive to undo. `@`
+# and `@snapshots` are siblings at the btrfs root and `/` is mounted with
+# subvol=@, which is what lets a snapshot be rolled back into place later.
+# Mounting the btrfs root as `/` instead would work today and close that door.
+say "btrfs on $mapper"
+run mkfs.btrfs -f -L fig "$mapper"
+run mount "$mapper" "$MOUNT"
+for v in $SUBVOLS; do run btrfs subvolume create "$MOUNT/$v"; done
+run umount "$MOUNT"
+
+opts="noatime,compress=zstd:3,space_cache=v2"
+say "mounting"
+run mount -o "$opts,subvol=@" "$mapper" "$MOUNT"
+run mkdir -p "$MOUNT/home" "$MOUNT/.snapshots" "$MOUNT/var/log" \
+	"$MOUNT/var/cache/pacman/pkg" "$MOUNT/boot"
+run mount -o "$opts,subvol=@home"      "$mapper" "$MOUNT/home"
+run mount -o "$opts,subvol=@snapshots" "$mapper" "$MOUNT/.snapshots"
+run mount -o "$opts,subvol=@log"       "$mapper" "$MOUNT/var/log"
+run mount -o "$opts,subvol=@pkg"       "$mapper" "$MOUNT/var/cache/pacman/pkg"
+run mount "$esp" "$MOUNT/boot"
+
+say "disk ready"
+if [ "$dry" = 0 ]; then
+	echo
+	# -l, not the tree. The box-drawing characters do not survive a serial
+	# console, and this output's whole job is to be read in a log.
+	findmnt -lo TARGET,SOURCE,FSTYPE "$MOUNT" --submounts
+	echo
+	btrfs subvolume list "$MOUNT"
+fi

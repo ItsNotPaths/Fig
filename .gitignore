@@ -25,3 +25,6 @@ repo/
 !/DE-shell/lib/theme/templates/hedl-colors.lua.tpl
 !/DE-shell/lib/theme/templates/micro.micro.tpl
 !/DE-shell/lib/theme/templates/fig.lua.tpl
+
+# Left by scripts/vm-install-test.py importing its sibling.
+__pycache__/
