@@ -2,6 +2,7 @@
 
 A light Artix overlay:
  - lua driven glyph locked DE shell using [wweft]
+ - [slopd] is the file browser AND every file dialog on the machine
  - lua composable universal IPC marshaller using [kipp] via [kippsrv]
  - no heavy, opinionated defaults (yazi/micro/btop/foot only - preconfigured)
  - omarchy vendored system themeing and styled DE shell layout
@@ -60,6 +61,49 @@ field holding an `=`. A fact no adapter writes yet shows up the day one does.
 It is also the answer to whether wweft can read kippsrv without new C:
 `Surface.listen` on a path connects to that socket and hands each line to
 `onMessage`. That was already there for compositor event sockets.
+
+## Files, and file dialogs
+
+[slopd] is on the image. Not installed by slopd's own installer — the package
+puts the binary on PATH and the launcher entry beside it, and nothing under
+`~` is created. `slopd --where` still says it is not installed, which is true:
+Slopd starts owning files in your home when you ask it to, from its Config
+pane or `slopd --install`, and not before.
+
+Its entry claims `inode/directory`, so opening a folder anywhere lands in the
+file browser. `~/.config/mimeapps.list` makes that the default rather than one
+choice in a list.
+
+**It is also the save dialog.** kippsrv owns xdg-desktop-portal's FileChooser
+backend, so a browser asking to save a file reaches this image's own browser
+rather than a GTK window nothing here has a toolkit for.
+
+```
+Firefox  ──D-Bus──▶  xdg-desktop-portal  ──▶  kippsrv  ──kipp──▶  fig-files
+                                                  ▲                    │
+                                                  └────ANSWER──────────┴─▶ slopd
+```
+
+`pick` on the socket is a request with a token for a subject. `fig-files` runs
+slopd on the folder it names, and whatever slopd returns goes back as
+`ANSWER`. Shift+Enter in slopd stages `:return <path>` in its command line, so
+turning `cat.png` into `cat-2.png` before pressing Enter is a text edit and
+not a second dialog.
+
+"Open containing folder" is the opposite shape and comes in on
+`org.freedesktop.FileManager1`: a path handed over, nothing to answer. It
+arrives as a `show` event and opens a window.
+
+None of it is D-Bus by the time it reaches `fig-files`, so anything that
+speaks kipp can raise a `pick` itself and get the same dialog with no bridge
+in the way.
+
+**A toolkit only asks the portal when it is told to.** `.bash_profile` sets
+`GTK_USE_PORTAL` and `QT_QPA_PLATFORMTHEME`, and Firefox gets a preference in
+`/etc/firefox/policies/policies.json`. GTK 4 finds the portal on its own.
+Nothing here is installed on the image, so each is a default waiting for the
+day you install a browser. An application that draws its own file dialog and
+asks no toolkit is out of reach, here as everywhere.
 
 ## Self test
 
@@ -131,6 +175,7 @@ an afternoon rather than a project.
 Everything of theirs is under their own licence, and the vendored files carry
 their notices. Anything wrong here is ours.
 
+[slopd]: https://github.com/ItsNotPaths/Slopd
 [wweft]: https://github.com/ItsNotPaths/wweft
 [kipp]: https://github.com/ItsNotPaths/kipp
 [kippsrv]: https://github.com/ItsNotPaths/kippsrv

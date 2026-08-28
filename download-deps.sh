@@ -76,6 +76,16 @@ lenovo/fix-yoga-pro7-bass-speakers.sh"
 YAY_VERSION=v13.0.1
 MISE_VERSION=v2026.8.12
 
+# slopd. The file browser the desktop opens, and the file dialog every other
+# program on the machine gets: kippsrv answers xdg-desktop-portal's file
+# chooser and fig-files runs slopd to answer it. Ours, and it publishes one
+# static binary per release, so there is nothing to compile.
+#
+# THE PIN NEEDS >= 1.9. `--pick` and the inode/directory association landed
+# after 1.8, and without them the dialog opens a window that cannot answer.
+# Set it back to 1.8 to ship the editor alone.
+SLOPD_VERSION=1.9
+
 # wlay. Monitor arrangement with the outputs drawn as rectangles, and the only
 # graphical one that is not GTK: GLFW and nuklear, straight onto
 # wlr-output-management, which hedl already creates. It has never tagged a
@@ -162,6 +172,32 @@ fetch_release yay z yay \
 
 fetch_release mise J bin/mise \
 	"https://github.com/jdx/mise/releases/download/$MISE_VERSION/mise-$MISE_VERSION-linux-x64-musl.tar.xz"
+
+# ------------------------------------------------------------------- slopd
+#
+# A bare binary rather than an archive, so fetch_release's tar does not apply.
+# The launcher entry and the icon are taken from the tree at the same tag: the
+# release carries the binary alone, and both of those are #load-ed into it, so
+# the tag is what keeps the three in step.
+slopd_dir="$vendor/slopd"
+if [ "$force" = 1 ]; then rm -rf "$slopd_dir"; fi
+if [ -x "$slopd_dir/slopd" ]; then
+	say "slopd: already present"
+else
+	say "slopd: fetching $SLOPD_VERSION"
+	rm -rf "$slopd_dir"
+	mkdir -p "$slopd_dir"
+	raw="https://raw.githubusercontent.com/ItsNotPaths/Slopd/$SLOPD_VERSION"
+	curl -fsSL -o "$slopd_dir/slopd" \
+		"https://github.com/ItsNotPaths/Slopd/releases/download/$SLOPD_VERSION/slopd" \
+		|| die "slopd: no $SLOPD_VERSION release. Tag it, or lower SLOPD_VERSION"
+	chmod +x "$slopd_dir/slopd"
+	curl -fsSL -o "$slopd_dir/slopd.desktop" "$raw/slopd.desktop" \
+		|| die "slopd: no slopd.desktop at $SLOPD_VERSION"
+	curl -fsSL -o "$slopd_dir/slopd.svg" "$raw/slopd.svg" \
+		|| die "slopd: no slopd.svg at $SLOPD_VERSION"
+	curl -fsSL -o "$slopd_dir/LICENSE" "$raw/LICENSE" || true
+fi
 
 # --------------------------------------------------------------------- wlay
 #

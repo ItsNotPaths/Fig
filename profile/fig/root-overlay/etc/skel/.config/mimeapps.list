@@ -1,0 +1,9 @@
+# What opens what. One entry, because this image ships one application that
+# claims a MIME type at all.
+#
+# slopd.desktop already declares inode/directory, which puts it in the Open
+# With list. Naming it here makes it the DEFAULT, so `xdg-open ~/Downloads`,
+# a folder in a launcher and "open containing folder" in a browser all go
+# straight to the file browser without asking.
+[Default Applications]
+inode/directory=slopd.desktop

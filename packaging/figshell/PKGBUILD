@@ -15,7 +15,8 @@ license=('MIT')
 # is the updatedb the AUR one runs. No gum: the spinner it drew is drawn in
 # omarchy-show-done now, because gum read the key that script was waiting for.
 # pam is fig-auth's, below.
-depends=('wweft' 'socat' 'yay' 'fzf' 'plocate' 'pam')
+# slopd is fig-files': it opens the file dialog every portal request asks for.
+depends=('wweft' 'socat' 'yay' 'fzf' 'plocate' 'pam' 'slopd')
 options=('!strip' '!debug')
 
 # One compiled file in an otherwise scripted package: fig-auth is what the

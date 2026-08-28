@@ -9,7 +9,7 @@ surfaces/         one file for each surface. Each one draws
 lists/            what a surface offers, as opposed to the surface
   menu.lua          the rows of the menu, and what each one runs
   record.lua        what the record popup offers, and where the file lands
-bin/              what a surface runs, and kippnotif. On PATH, not beside it
+bin/              what a surface runs, and fig-files. On PATH, not beside it
 lib/              code more than one surface needs. No settings live here
   settings.lua      reads config.lua
   palette.lua       the colours now, and when they changed

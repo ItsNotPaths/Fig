@@ -1,0 +1,14 @@
+# kippsrv, as xdg-desktop-portal's file chooser backend.
+#
+# The DBusName is kippsrv's own (src/portal.odin), taken at session start
+# rather than activated: kippsrv is already running as the shell's daemon, so
+# there is no .service file and nothing for a portal to spawn.
+#
+# UseIn has to match one of the colon-separated names in XDG_CURRENT_DESKTOP,
+# which .bash_profile sets to `hedl:wlroots`. It is deprecated in favour of
+# hedl-portals.conf beside this directory, and both are shipped: the conf is
+# what current xdg-desktop-portal reads, and this is what an older one does.
+[portal]
+DBusName=org.freedesktop.impl.portal.desktop.kippsrv
+Interfaces=org.freedesktop.impl.portal.FileChooser;
+UseIn=hedl;wlroots;

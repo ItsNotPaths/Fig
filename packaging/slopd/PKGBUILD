@@ -1,0 +1,33 @@
+# Upstream's released binary, fetched by download-deps.sh. Ours, and it is one
+# static ~2.4 MB executable with the config, the themes, the launcher entry and
+# the icon all #load-ed into it, so there is nothing else to install.
+#
+# NOTHING under ~ is created here, and that is deliberate. Slopd runs on the
+# defaults baked into the binary and only starts owning files in a person's
+# home when they ask it to, from the Config pane or `slopd --install`. So a fig
+# machine has slopd on PATH and `slopd --where` still says it is not installed,
+# which is true: the package installed it, Slopd did not.
+#
+# The launcher entry claims inode/directory and nothing else, so opening a
+# folder lands in the file browser and no text file gains an Open With entry it
+# did not have.
+pkgname=slopd
+pkgver=${PKGVER:?PKGVER is not set}
+pkgrel=1
+pkgdesc="A GPU text editor and file browser: two panes, a command line, no modes"
+arch=('x86_64')
+url="https://github.com/ItsNotPaths/Slopd"
+license=('MIT')
+depends=('glibc' 'libglvnd')
+options=('!strip' '!debug')
+
+package() {
+	src="${STAGE:?STAGE is not set}"
+	install -Dm755 "$src/slopd" "$pkgdir/usr/bin/slopd"
+	install -Dm644 "$src/slopd.desktop" "$pkgdir/usr/share/applications/slopd.desktop"
+	install -Dm644 "$src/slopd.svg" \
+		"$pkgdir/usr/share/icons/hicolor/scalable/apps/slopd.svg"
+	[ -f "$src/LICENSE" ] && install -Dm644 "$src/LICENSE" \
+		"$pkgdir/usr/share/licenses/slopd/LICENSE"
+	return 0
+}

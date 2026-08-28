@@ -1,0 +1,119 @@
+#!/bin/bash
+# The file browser, for everything on the machine that wants one.
+#
+#   fig-files            watch the kippsrv socket and answer with slopd
+#
+# Started by hedl like the other session daemons. Two kinds arrive here and
+# they are opposite shapes:
+#
+#   pick   a REQUEST. Something wants a path chosen. Slopd opens on the folder
+#          it named, and whatever Slopd returns goes back as ANSWER. See
+#          "Requests" in kipp's SPEC.md.
+#   show   an EVENT. Something handed us a path to open. Nothing answers.
+#
+# Neither is a D-Bus thing by the time it gets here. kippsrv owns the portal
+# and the file manager names and turns both into kipp, so this file knows
+# nothing about either, and a program that speaks kipp directly is served by
+# the same loop with no bridge in the way.
+
+set -uo pipefail
+
+SOCK="${XDG_RUNTIME_DIR:-/tmp}/kippsrv.sock"
+TAB=$'\t'
+
+# One connection, both ways: the answer goes back on the socket the request
+# came in on. A fifo opened for reading AND writing never sees end of file, so
+# socat stays up while there is nothing to say.
+up=$(mktemp -u) && down=$(mktemp -u) || exit 1
+mkfifo "$up" "$down" || exit 1
+trap 'kill $talker 2>/dev/null; rm -f "$up" "$down"' EXIT INT TERM
+exec 3<>"$up"
+
+# Slopd, then the answer. In a subshell so a second dialog is not queued behind
+# the first: a person can have two open, and each is its own window.
+#
+# Nothing written means cancelled, which is every way out that is not `:return`
+# — Esc, `:q`, closing the window, a kill. So there is no cancel to detect, and
+# the empty file mktemp leaves behind reads as one.
+answer() {
+	local token=$1 mode=$2 dir=$3 name=$4 title=$5 multi=$6
+	(
+		local out args=()
+		out=$(mktemp --tmpdir fig-files.XXXXXX) || return
+		args=(--pick="$mode" --pick-out="$out")
+		[[ -n $name ]] && args+=(--pick-name="$name")
+		[[ -n $title ]] && args+=(--pick-title="$title")
+		[[ -n $multi ]] && args+=(--pick-multi)
+		[[ -d $dir ]] && args+=("$dir")
+
+		slopd "${args[@]}" >/dev/null 2>&1
+
+		local line n=0 fields=""
+		while IFS= read -r line; do
+			[[ -n $line ]] || continue
+			fields+="$TAB"p$n=$line
+			n=$((n + 1))
+		done < <(cat -- "$out" 2>/dev/null)
+		rm -f -- "$out"
+
+		if ((n > 0)); then
+			printf 'ANSWER%s%s%sr=0%sn=%d%s\n' "$TAB" "$token" "$TAB" "$TAB" "$n" "$fields" >&3
+		else
+			printf 'ANSWER%s%s%sr=1\n' "$TAB" "$token" "$TAB" >&3
+		fi
+	) &
+}
+
+# "Show me this." A folder opens as itself; a file opens the folder holding it,
+# which is what "open containing folder" means. --util is what puts either on
+# the file pane rather than behind the editor.
+show() {
+	local what=$1; shift
+	local path
+	for path in "$@"; do
+		[[ $what == folders && -d $path ]] || path=${path%/*}
+		[[ -d $path ]] && slopd --util "$path" >/dev/null 2>&1 &
+	done
+}
+
+# hedl starts this and kippsrv in one pass, so the socket is usually not there
+# yet. Reconnecting rather than requiring an order also means a kippsrv that
+# restarts, which changing the theme does, is picked up on its own.
+while sleep 1; do
+	[[ -S $SOCK ]] || continue
+	socat UNIX-CONNECT:"$SOCK" - <&3 > "$down" 2>/dev/null &
+	talker=$!
+
+	while IFS="$TAB" read -r kind rest; do
+		case $kind in
+		pick|show) ;;
+		*) continue ;;                  # every other fact is somebody else's
+		esac
+
+		token=${rest%%"$TAB"*}
+		mode="" dir="" name="" title="" multi="" what="" n=0
+		paths=()
+		old=$IFS; IFS=$TAB
+		for f in $rest; do
+			case $f in
+			mode=*)  mode=${f#*=} ;;
+			dir=*)   dir=${f#*=} ;;
+			name=*)  name=${f#*=} ;;
+			title=*) title=${f#*=} ;;
+			multi=*) multi=${f#*=} ;;
+			what=*)  what=${f#*=} ;;
+			n=*)     n=${f#*=} ;;
+			p[0-9]*=*) paths+=("${f#*=}") ;;
+			esac                       # an attribute we do not know costs nothing
+		done
+		IFS=$old
+
+		if [[ $kind == pick ]]; then
+			answer "$token" "${mode:-open}" "$dir" "$name" "$title" "$multi"
+		else
+			((${#paths[@]})) && show "$what" "${paths[@]}"
+		fi
+	done < "$down"
+
+	kill $talker 2>/dev/null
+done

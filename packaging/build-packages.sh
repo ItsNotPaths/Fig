@@ -53,7 +53,7 @@ say "wweft: build.sh"
 
 # --------------------------------------------------------------------- stage
 
-pkgs="kippsrv wweft hedl-wm wlay ttf-iosevkaterm-nerd-mono yay mise fig-defaults figshell"
+pkgs="kippsrv wweft hedl-wm wlay ttf-iosevkaterm-nerd-mono yay mise slopd fig-defaults figshell"
 for p in $pkgs; do rm -rf "$stage/$p"; mkdir -p "$stage/$p"; done
 mkdir -p "$repo"
 
@@ -90,7 +90,7 @@ cp "$fonts"/*.ttf "$stage/ttf-iosevkaterm-nerd-mono/usr/share/fonts/TTF/"
 
 # Released binaries. Their PKGBUILDs pick what to install out of the unpacked
 # archive, so the whole tree is staged as it came down.
-for p in yay mise; do
+for p in yay mise slopd; do
 	[ -d "$root/vendor/$p" ] || die "no $p in vendor/. Run ./download-deps.sh"
 	cp -a "$root/vendor/$p/." "$stage/$p/"
 done
@@ -179,6 +179,7 @@ wlay:$(version "$root/vendor/wlay") \
 ttf-iosevkaterm-nerd-mono:$(sed -n 's/^NERD_VERSION=v//p' "$root/download-deps.sh") \
 yay:$(sed -n 's/^YAY_VERSION=v//p' "$root/download-deps.sh") \
 mise:$(sed -n 's/^MISE_VERSION=v//p' "$root/download-deps.sh") \
+slopd:$(sed -n 's/^SLOPD_VERSION=//p' "$root/download-deps.sh") \
 fig-defaults:$(version "$root") \
 figshell:$(version "$root")" \
 	-e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \

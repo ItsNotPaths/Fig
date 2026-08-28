@@ -99,6 +99,10 @@ hedl.on("start", function()
     -- The clipboard history. It only writes files; the surface that reads
     -- them is started by a key like every other surface.
     "fig-clip watch",
+    -- The file browser, for everything that wants one. It answers the `pick`
+    -- requests kippsrv raises for xdg-desktop-portal, and opens what `show`
+    -- hands over. It connects to kippsrv, so it retries until that is up.
+    "fig-files",
     -- The bar. It reads kippsrv, so it starts after it.
     "wweft ~/.config/figshell/bar.lua",
     -- The shell. Everything a surface draws comes off its socket, and it

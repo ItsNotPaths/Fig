@@ -26,6 +26,20 @@ return {
 		-- that name, which is why dunst is not installed.
 		{ name = "notify", notify = true, adapter = lua .. "/notify/fdo.lua" },
 
+		-- The file dialog. kippsrv owns the xdg-desktop-portal FileChooser
+		-- backend, so a browser's Save As is answered here instead of by a
+		-- GTK window this image has no toolkit for. The call reaches the
+		-- adapter as JSON and comes out as a `pick` request; fig-files sees
+		-- it, runs slopd, and sends the answer back. Nothing in between
+		-- knows it began on D-Bus.
+		{ name = "dialogs", portal = true, adapter = lua .. "/files/portal.lua" },
+
+		-- "Open containing folder", which is a different interface and the
+		-- opposite shape: a path handed over, and nothing to answer. There is
+		-- no other file manager on this image to argue over the name.
+		{ name = "files", filemanager = true,
+		  adapter = lua .. "/files/filemanager.lua" },
+
 		-- hedl. One source and no seed: hedl sends its whole state when a
 		-- consumer connects and again on every change, so there is nothing
 		-- to prime. It is kipp on the wire already, which is why the

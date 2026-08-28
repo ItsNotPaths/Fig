@@ -22,6 +22,26 @@ export MICRO_TRUECOLOR=1
 export XDG_CURRENT_DESKTOP=hedl:wlroots
 export XDG_SESSION_TYPE=wayland
 
+# Send file dialogs through the portal, which on this image means slopd.
+#
+# kippsrv owns the FileChooser backend and fig-files fills it in, but a
+# toolkit only ASKS the portal when it is told to. Each of these is one
+# toolkit's switch, and none of them costs anything on a machine where that
+# toolkit is not installed:
+#
+#   GTK 3      GTK_USE_PORTAL. GTK 4 finds the portal on its own and needs no
+#              variable, so there is nothing here for it.
+#   Qt 5 / 6   the xdgdesktopportal platform theme, which ships with Qt.
+#
+# Firefox is a preference rather than a variable and lives in
+# /etc/firefox/policies/policies.json. Chromium and its forks use GTK's
+# dialog, so GTK_USE_PORTAL reaches them too.
+#
+# Nothing here is load bearing for the session: unset them and dialogs go back
+# to whatever each toolkit draws for itself.
+export GTK_USE_PORTAL=1
+export QT_QPA_PLATFORMTHEME=xdgdesktopportal
+
 # tty1 is the session. Anything else is a plain shell.
 #
 # dbus-run-session, not a user service manager: runit has none, and every

@@ -116,6 +116,12 @@ rootfs:
     - figshell
     - kippsrv
     - wweft
+    # The file browser, and the file DIALOG. kippsrv answers
+    # xdg-desktop-portal's file chooser and fig-files runs this to fill it in,
+    # so a browser's Save As is Slopd rather than a GTK window this image has
+    # no toolkit for. It is also the inode/directory handler, so opening a
+    # folder anywhere lands here.
+    - slopd
 
     # The seam. Every one of these is named by a kippsrv adapter or by a
     # surface that reads one.
