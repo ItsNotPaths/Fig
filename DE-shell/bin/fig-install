@@ -16,6 +16,14 @@
 #   FIG_ROOT_PART=/dev/vda2      use-partition: what to put the root on
 #   FIG_ESP_PART=/dev/vda1       use-partition: an ESP that already exists
 #   FIG_LUKS_PASS_FILE=/run/x    the passphrase, its own file, mode 600
+#   FIG_HOSTNAME=fig             defaults: fig, UTC, en_US.UTF-8, us, fig
+#   FIG_TIMEZONE=Europe/Berlin
+#   FIG_LOCALE=en_US.UTF-8
+#   FIG_KEYMAP=us
+#   FIG_USER=paths
+#   FIG_USER_PASS_FILE=/run/y    that user's password, its own file
+#   FIG_ROOT_PASS_FILE=/run/z    root's password. Unset locks root instead
+#   FIG_CONSOLE=ttyS0,115200     a serial console. Unset on anything with a screen
 #
 # Passphrases are never in the answer file. It is written to disk to be read
 # back and logged; the passphrase is read once from a file under /run.
@@ -224,3 +232,160 @@ if [ "$dry" = 0 ]; then
 	echo
 	btrfs subvolume list "$MOUNT"
 fi
+
+# ------------------------------------------------------------------- base
+#
+# From the mirror on the ISO and nowhere else, so an install works with the
+# cable out. The package set is whatever the live system is running, minus the
+# four packages that only make sense on a live image: what you install is what
+# you just booted and nothing else.
+mirror=${FIG_MIRROR:-}
+if [ -z "$mirror" ]; then
+	mirror=$(dirname "$(find /run -name fig-mirror.db 2>/dev/null | head -1)" 2>/dev/null)
+fi
+[ -d "$mirror" ] || die "no package mirror. Looked for fig-mirror.db under /run"
+say "mirror: $mirror"
+
+LIVE_ONLY="artix-live-base artix-live-runit artix-grub-live squashfs-tools"
+
+conf=$(mktemp)
+cat > "$conf" <<EOF
+[options]
+HoldPkg = pacman glibc
+Architecture = auto
+SigLevel = Optional TrustAll
+LocalFileSigLevel = Optional TrustAll
+
+[fig-mirror]
+Server = file://$mirror
+EOF
+
+pkgs=$(pacman -Qq | grep -vxF "$(printf '%s\n' $LIVE_ONLY)" | tr '\n' ' ')
+say "installing $(printf '%s' "$pkgs" | wc -w) packages"
+if [ "$dry" = 1 ]; then
+	echo "    would: basestrap -C $conf $MOUNT <$(printf '%s' "$pkgs" | wc -w) packages>"
+else
+	# shellcheck disable=SC2086
+	basestrap -C "$conf" "$MOUNT" $pkgs || die "basestrap failed"
+fi
+
+say "fstab"
+if [ "$dry" = 1 ]; then
+	echo "    would: fstabgen -U $MOUNT >> $MOUNT/etc/fstab"
+else
+	fstabgen -U "$MOUNT" >> "$MOUNT/etc/fstab" || die "fstabgen failed"
+fi
+
+# ----------------------------------------------------------------- chroot
+#
+# One script written into the target and run there, rather than twenty
+# artix-chroot calls. It is easier to read, and a failure names the line.
+luks_uuid=$(blkid -s UUID -o value "$root" 2>/dev/null)
+[ -n "$luks_uuid" ] || [ "$dry" = 1 ] || die "no UUID on $root"
+
+: "${FIG_HOSTNAME:=fig}"
+: "${FIG_TIMEZONE:=UTC}"
+: "${FIG_LOCALE:=en_US.UTF-8}"
+: "${FIG_KEYMAP:=us}"
+: "${FIG_USER:=fig}"
+
+# A machine with no screen. FIG_CONSOLE=ttyS0,115200 puts the kernel and the
+# initramfs passphrase prompt on a serial port, which is the only way to
+# install onto a headless box and the only way the VM test can watch one boot.
+# Off by default: the last console= on the line owns /dev/console, so setting
+# this on a laptop would send the passphrase prompt somewhere nobody is looking.
+cmdline_extra=""
+[ -n "${FIG_CONSOLE:-}" ] && cmdline_extra=" console=tty0 console=$FIG_CONSOLE"
+
+say "configuring the new system"
+if [ "$dry" = 1 ]; then
+	echo "    would: hostname $FIG_HOSTNAME, tz $FIG_TIMEZONE, locale $FIG_LOCALE"
+	echo "    would: mkinitcpio with the encrypt hook, then grub with"
+	echo "           cryptdevice=UUID=<$root>:cryptroot rootflags=subvol=@"
+	echo "    would: create $FIG_USER, enable NetworkManager bluetoothd acpid agetty-ttyS0"
+	say "dry run complete"
+	exit 0
+fi
+
+install -Dm600 "${FIG_USER_PASS_FILE:-/dev/null}" "$MOUNT/root/.fig-userpass" 2>/dev/null || true
+install -Dm600 "${FIG_ROOT_PASS_FILE:-/dev/null}" "$MOUNT/root/.fig-rootpass" 2>/dev/null || true
+
+cat > "$MOUNT/root/fig-configure" <<EOF
+#!/bin/bash
+set -eu
+
+echo "$FIG_HOSTNAME" > /etc/hostname
+printf '127.0.0.1\tlocalhost\n::1\t\tlocalhost\n127.0.1.1\t%s\n' "$FIG_HOSTNAME" > /etc/hosts
+
+ln -sf "/usr/share/zoneinfo/$FIG_TIMEZONE" /etc/localtime
+hwclock --systohc || true
+
+sed -i 's/^#\\($FIG_LOCALE\\)/\\1/' /etc/locale.gen
+locale-gen
+echo "LANG=$FIG_LOCALE" > /etc/locale.conf
+echo "KEYMAP=$FIG_KEYMAP" > /etc/vconsole.conf
+
+# encrypt before filesystems, and only once however many times this runs.
+#
+# The HOOKS line and nothing else. mkinitcpio.conf ships a comment block that
+# lists every available hook by name, so grepping the whole file for "encrypt"
+# matches the documentation and reports success on a system that cannot unlock
+# its own root. It did exactly that once.
+hooks() { grep -m1 '^HOOKS=' /etc/mkinitcpio.conf; }
+hooks >/dev/null || { echo "no HOOKS line in mkinitcpio.conf" >&2; exit 1; }
+case "\$(hooks)" in
+*encrypt*) ;;
+*) sed -i 's/^\(HOOKS=.*\)filesystems/\1encrypt filesystems/' /etc/mkinitcpio.conf ;;
+esac
+case "\$(hooks)" in
+*encrypt*) ;;
+*) echo "could not put encrypt in: \$(hooks)" >&2; exit 1 ;;
+esac
+mkinitcpio -P
+
+# And prove it landed in the image, not just in the file that asks for it.
+lsinitcpio /boot/initramfs-linux.img | grep -q 'hooks/encrypt' ||
+	{ echo "the initramfs has no encrypt hook" >&2; exit 1; }
+
+# /boot is the ESP and is not encrypted, so grub never reads LUKS. The initramfs
+# asks for the passphrase instead, which is what cryptdevice= tells it to do.
+sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="cryptdevice=UUID=$luks_uuid:cryptroot root=/dev/mapper/cryptroot rootflags=subvol=@ rw$cmdline_extra"|' \\
+	/etc/default/grub
+# --removable as well as the NVRAM entry: a VM with no persistent NVRAM, and
+# some firmware that forgets, both boot the fallback path instead.
+grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=fig --removable
+grub-mkconfig -o /boot/grub/grub.cfg
+
+id -u "$FIG_USER" >/dev/null 2>&1 || useradd -m -G wheel,video,audio,input,storage "$FIG_USER"
+if [ -s /root/.fig-userpass ]; then
+	printf '%s:%s' "$FIG_USER" "\$(cat /root/.fig-userpass)" | chpasswd
+fi
+# Root gets a password only when one was given. The installer surface hands it
+# the same secret as the disk and the login, which is omarchy's arrangement and
+# means one thing to remember. An answer file that names no root password locks
+# the account instead, and sudo through wheel is the only way up.
+if [ -s /root/.fig-rootpass ]; then
+	printf 'root:%s' "\$(cat /root/.fig-rootpass)" | chpasswd
+else
+	passwd -l root
+fi
+rm -f /root/.fig-userpass /root/.fig-rootpass
+
+# wheel gets sudo. Artix ships the line commented in its own sudoers.
+sed -i 's/^# \\(%wheel ALL=(ALL:ALL) ALL\\)/\\1/' /etc/sudoers
+
+# The four the packages do not link for themselves. dbus, logind, udevd and the
+# six agettys come with their own packages; these do not.
+mkdir -p /etc/runit/runsvdir/default
+for s in NetworkManager bluetoothd acpid agetty-ttyS0; do
+	[ -d "/etc/runit/sv/\$s" ] && ln -sfn "/etc/runit/sv/\$s" "/etc/runit/runsvdir/default/\$s"
+done
+# Live-only, and it would try to re-key pacman on every boot.
+rm -f /etc/runit/runsvdir/default/pacman-init
+EOF
+
+chmod +x "$MOUNT/root/fig-configure"
+artix-chroot "$MOUNT" /root/fig-configure || die "configuring the new system failed"
+rm -f "$MOUNT/root/fig-configure"
+
+say "installed"
