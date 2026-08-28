@@ -11,8 +11,14 @@
 -- A picture cannot be drawn here: wweft is a grid of glyphs and has no image
 -- decoder, and giving it one to preview a clipboard entry is the wrong place
 -- to put a decoder. So the preview is mpv, floated under this window by a
--- hedl rule, and moved from clip to clip over its own IPC socket rather than
--- being started again for every arrow key.
+-- hedl rule, and moved from clip to clip over its own IPC socket.
+--
+-- One mpv, started with this surface and quit with it. It is not started and
+-- killed as the cursor crosses between pictures and text: a window that comes
+-- and goes under the list is worse to look at than a black one, and mpv is
+-- slower to start than a person is to press Down. On a text row it is told to
+-- unload, so it sits idle and black rather than showing the last picture
+-- beside a row that is not it.
 --
 -- It never takes the keyboard away. hedl leaves the keyboard with a layer
 -- surface on `overlay` while one is up, so a window mapping under it changes
@@ -43,8 +49,8 @@ local ME = Surface.sh("echo $PPID", 1000):gsub("%s+$", "")
 palette.load()
 local NOTE = palette.style("dark_foreground", "background")
 
--- The preview process. One mpv, kept for as long as images are being walked
--- through, told what to show down its socket.
+-- The preview process. One mpv for the life of this surface, told what to
+-- show down its socket.
 local mpv = {up = false, showing = nil, want = nil, due = nil}
 
 function mpv:start()
@@ -80,12 +86,19 @@ function mpv:send(json)
 end
 
 function mpv:show(id, path)
-	self:start()
 	self.showing = id
 	self:send(('{"command":["loadfile","%s"]}'):format(path))
 end
 
-function mpv:stop()
+-- Back to idle. mpv's own `stop` unloads the file and leaves the window, which
+-- with --idle=yes --force-window=yes is a black rectangle where the picture
+-- was.
+function mpv:blank()
+	self.showing = nil
+	self:send('{"command":["stop"]}')
+end
+
+function mpv:quit()
 	if not self.up then return end
 	self.up, self.showing = false, nil
 	self:send('{"command":["quit"]}')
@@ -107,11 +120,12 @@ function mpv:tick(ms)
 	if self.due > 0 then return end
 	self.due = nil
 
+	-- Both nil is a text row after a text row, and there is nothing to say.
+	if self.want == self.showing then return end
 	if not self.want then
-		self:stop()
+		self:blank()
 		return
 	end
-	if self.want == self.showing then return end
 
 	local path = Surface.sh("fig-clip path " .. Text.quote(self.want), 1000)
 	              :gsub("%s+$", "")
@@ -137,21 +151,21 @@ local list = picker.new{
 	rows    = ROWS,
 	sources = {{name = "clips", rows = clips}},
 
-	-- Only a picture is worth a window. Text is already on screen, in the row
-	-- the cursor is on.
+	-- Only a picture is worth loading. Text is already on screen, in the row
+	-- the cursor is on, so the preview goes black instead.
 	moved = function(row)
 		mpv:aim(row and row.value.kind == "image" and row.value.id or nil)
 	end,
 
 	pick = function(row)
-		mpv:stop()
+		mpv:quit()
 		Surface.spawn("fig-clip put " .. Text.quote(row.value.id))
 		Surface.close(0)
 	end,
 
 	key = function(k)
 		if k ~= "Escape" then return false end
-		mpv:stop()
+		mpv:quit()
 		Surface.close(1)
 		return true
 	end,
@@ -174,4 +188,7 @@ Surface.dismiss(false)
 Surface.window(COLS, ROWS + 1)
 Surface.every(SETTLE)
 Surface.listen("theme")
+-- Before the first row is drawn, so the window is already there and stays
+-- there. Nothing after this starts or kills it except quit().
+mpv:start()
 Surface.run(list)
