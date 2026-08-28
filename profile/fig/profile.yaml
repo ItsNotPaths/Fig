@@ -55,6 +55,13 @@ rootfs:
     - xdg-desktop-portal
     - xdg-desktop-portal-wlr
 
+    # Every vendor's firmware, about 500 MB installed. Nothing here asked for
+    # firmware before, so what arrived came in as somebody's dependency: amdgpu,
+    # mediatek, realtek. That is the firmware this machine happens to need,
+    # which is no use on an image meant to install onto a machine nobody has
+    # seen. An installed laptop with no iwlwifi has no way to fetch iwlwifi.
+    - linux-firmware
+
     # Graphics. vulkan-swrast is what makes the ISO boot on a VM with no
     # passthrough GPU; vulkan-radeon is for the laptop.
     - mesa
