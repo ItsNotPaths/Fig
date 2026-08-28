@@ -208,9 +208,10 @@ rootfs:
     - fzf
     - plocate
 
-    # Runtimes, without a package for each one. mise is ours for the same
-    # reason yay is.
-    - mise
+    # Not mise. It is still built into repo/ and build-iso.sh lays everything
+    # there into the offline mirror, so `pacman -S mise` works on a machine
+    # with no network; it is just not one of the things fig decides for you.
+    # `.bashrc` activates it if it is present and says nothing if it is not.
 
     - earlyoom
 
