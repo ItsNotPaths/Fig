@@ -130,3 +130,8 @@ an afternoon rather than a project.
 
 Everything of theirs is under their own licence, and the vendored files carry
 their notices. Anything wrong here is ours.
+
+[wweft]: https://github.com/ItsNotPaths/wweft
+[kipp]: https://github.com/ItsNotPaths/kipp
+[kippsrv]: https://github.com/ItsNotPaths/kippsrv
+[hedl]: https://github.com/ItsNotPaths/hedl-wm
