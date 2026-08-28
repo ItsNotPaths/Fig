@@ -341,14 +341,29 @@ autologin=${FIG_AUTOLOGIN:-1}
 # Off by default: the last console= on the line owns /dev/console, so setting
 # this on a laptop would send the passphrase prompt somewhere nobody is looking.
 cmdline_extra=""
-[ -n "${FIG_CONSOLE:-}" ] && cmdline_extra=" console=tty0 console=$FIG_CONSOLE"
+cmdline_splash=" quiet splash"
+splash=1
+if [ -n "${FIG_CONSOLE:-}" ]; then
+	cmdline_extra=" console=tty0 console=$FIG_CONSOLE"
+	cmdline_splash=""
+	# And no plymouth hook at all on such a machine. The hook runs
+	# `plymouthd --attach-to-session`, which takes /dev/console with it, and
+	# cryptsetup then prompts into plymouth's terminal instead of down the
+	# wire: the banner arrives, the prompt never does, and the boot hangs
+	# with nothing to say. There is no kernel parameter for this. Artix's
+	# plymouthd holds no `plymouth.enable` string at all -- that switch is
+	# dracut's, and setting it here did nothing but look like it worked.
+	splash=0
+fi
 
 say "configuring the new system"
 if [ "$dry" = 1 ]; then
 	echo "    would: hostname $FIG_HOSTNAME, tz $FIG_TIMEZONE, locale $FIG_LOCALE"
-	echo "    would: mkinitcpio with the encrypt hook, then grub with"
+	[ "$splash" = 1 ] &&
+		echo "    would: mkinitcpio with the encrypt and plymouth hooks, then grub with" ||
+		echo "    would: mkinitcpio with the encrypt hook and no splash, then grub with"
 	echo "           cryptdevice=UUID=<$root>:cryptroot rootflags=subvol=@"
-	echo "    would: create $FIG_USER, enable NetworkManager bluetoothd acpid agetty-ttyS0"
+	echo "    would: create $FIG_USER, enable NetworkManager bluetoothd acpid agetty-ttyS0 power-profiles-daemon fig-plymouth"
 	[ "$autologin" = 1 ] && echo "    would: log $FIG_USER in on tty1 through fig-tty1"
 	say "dry run complete"
 	exit 0
@@ -372,6 +387,16 @@ locale-gen
 echo "LANG=$FIG_LOCALE" > /etc/locale.conf
 echo "KEYMAP=$FIG_KEYMAP" > /etc/vconsole.conf
 
+# The splash, before mkinitcpio: plymouth's install hook bundles whichever
+# theme is the default at the moment it runs, so setting it afterwards would
+# build an initramfs holding somebody else's.
+#
+# Set even when the hook is left out below, so that turning the splash back on
+# is one mkinitcpio away.
+plymouth-set-default-theme fig
+grep -q 'Theme=fig' /etc/plymouth/plymouthd.conf ||
+	{ echo "the plymouth theme did not stick" >&2; exit 1; }
+
 # encrypt before filesystems, and only once however many times this runs.
 #
 # The HOOKS line and nothing else. mkinitcpio.conf ships a comment block that
@@ -388,15 +413,43 @@ case "\$(hooks)" in
 *encrypt*) ;;
 *) echo "could not put encrypt in: \$(hooks)" >&2; exit 1 ;;
 esac
+
+# plymouth right after udev, which is where its own documentation puts it and
+# what omarchy's hooks line does. \budev\b and not udev: mdadm_udev is a hook
+# name too, and _ is a word character, so the boundary keeps them apart.
+if [ $splash = 1 ]; then
+	case "\$(hooks)" in
+	*plymouth*) ;;
+	*) sed -i '/^HOOKS=/s/\budev\b/udev plymouth/' /etc/mkinitcpio.conf ;;
+	esac
+	case "\$(hooks)" in
+	*plymouth*) ;;
+	*) echo "could not put plymouth in: \$(hooks)" >&2; exit 1 ;;
+	esac
+fi
+
 mkinitcpio -P
 
-# And prove it landed in the image, not just in the file that asks for it.
+# And prove they landed in the image, not just in the file that asks for them.
 lsinitcpio /boot/initramfs-linux.img | grep -q 'hooks/encrypt' ||
 	{ echo "the initramfs has no encrypt hook" >&2; exit 1; }
+if [ $splash = 1 ]; then
+	lsinitcpio /boot/initramfs-linux.img | grep -q 'hooks/plymouth' ||
+		{ echo "the initramfs has no plymouth hook" >&2; exit 1; }
+	# The hook without the theme is a raw prompt on a black screen, which
+	# is the thing this was meant to replace.
+	lsinitcpio /boot/initramfs-linux.img | grep -q 'themes/fig/fig.script' ||
+		{ echo "the initramfs has no fig theme" >&2; exit 1; }
+else
+	# The other way round, and it matters more: a hook that got in here
+	# would take the passphrase prompt off the serial line.
+	! lsinitcpio /boot/initramfs-linux.img | grep -q 'hooks/plymouth' ||
+		{ echo "a serial install got the plymouth hook" >&2; exit 1; }
+fi
 
 # /boot is the ESP and is not encrypted, so grub never reads LUKS. The initramfs
 # asks for the passphrase instead, which is what cryptdevice= tells it to do.
-sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="cryptdevice=UUID=$luks_uuid:cryptroot root=/dev/mapper/cryptroot rootflags=subvol=@ rw$cmdline_extra"|' \\
+sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="cryptdevice=UUID=$luks_uuid:cryptroot root=/dev/mapper/cryptroot rootflags=subvol=@ rw$cmdline_splash$cmdline_extra"|' \\
 	/etc/default/grub
 # --removable as well as the NVRAM entry: a VM with no persistent NVRAM, and
 # some firmware that forgets, both boot the fallback path instead.
@@ -421,10 +474,17 @@ rm -f /root/.fig-userpass /root/.fig-rootpass
 # wheel gets sudo. Artix ships the line commented in its own sudoers.
 sed -i 's/^# \\(%wheel ALL=(ALL:ALL) ALL\\)/\\1/' /etc/sudoers
 
-# The four the packages do not link for themselves. dbus, logind, udevd and the
-# six agettys come with their own packages; these do not.
+# The ones no package links for itself. dbus, logind, udevd and the six agettys
+# come with their own packages; these do not.
+#
+# fig-plymouth is the handover: it tells plymouthd to go, because nothing else
+# on a runit machine will, and hedl cannot take the screen while it is there.
+#
+# power-profiles-daemon looks like it should not need one, since it ships a
+# D-Bus activation file. Both of its files say Exec=/bin/false and name a
+# systemd unit instead, so dbus can never start it here.
 mkdir -p /etc/runit/runsvdir/default
-for s in NetworkManager bluetoothd acpid agetty-ttyS0; do
+for s in NetworkManager bluetoothd acpid agetty-ttyS0 power-profiles-daemon fig-plymouth; do
 	[ -d "/etc/runit/sv/\$s" ] && ln -sfn "/etc/runit/sv/\$s" "/etc/runit/runsvdir/default/\$s"
 done
 

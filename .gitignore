@@ -28,3 +28,7 @@ repo/
 
 # Left by scripts/vm-install-test.py importing its sibling.
 __pycache__/
+
+# Omarchy's boot-splash images, fetched by download-deps.sh into the theme
+# directory the package is built from. fig.plymouth and fig.script are ours.
+/packaging/fig-defaults/files/usr/share/plymouth/themes/fig/*.png

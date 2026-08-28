@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# The end of the splash. plymouthd starts in the initramfs and keeps running
+# after the switch to the real root, holding DRM master, so hedl cannot become
+# master until it goes. systemd has plymouth-quit.service for this; runit has
+# nothing, so this is it.
+#
+# --retain-splash leaves the last frame up instead of restoring the console, so
+# the picture stays until hedl draws over it.
+#
+# Its own service and not a line in fig-tty1: plymouthd runs whether or not
+# `splash` is on the command line and whether or not anyone is autologged in.
+# runit restarts a run script that returns, so this one waits afterwards.
+plymouth --ping 2>/dev/null && plymouth quit --retain-splash
+exec sleep infinity

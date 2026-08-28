@@ -25,6 +25,11 @@ live-session:
     - NetworkManager
     - bluetoothd
     - acpid
+    # power-profiles-daemon. Its D-Bus activation file cannot start it: the
+    # Exec line is /bin/false and the real one is SystemdService=, so on any
+    # init but systemd the first call to it fails and nothing says why. It
+    # needs a service like anything else.
+    - power-profiles-daemon
     # A login on the serial port, so the image can be driven in a VM with no
     # screen. `qemu -serial mon:stdio` is then a whole test rig.
     - agetty-ttyS0
@@ -61,6 +66,17 @@ rootfs:
     # which is no use on an image meant to install onto a machine nobody has
     # seen. An installed laptop with no iwlwifi has no way to fetch iwlwifi.
     - linux-firmware
+
+    # The boot splash, so the passphrase prompt is a box in the middle of the
+    # screen and not a line on a raw console. The theme is fig-defaults'; the
+    # initramfs hook is plymouth's own, and the stock encrypt hook asks it for
+    # the passphrase whenever it answers a ping. There is no plymouth-encrypt
+    # hook any more and none is wanted.
+    #
+    # Named here rather than left to the target: the ISO's mirror is what the
+    # live system holds, so a package the live image never installs cannot be
+    # installed from it either.
+    - plymouth
 
     # Graphics. vulkan-swrast is what makes the ISO boot on a VM with no
     # passthrough GPU; vulkan-radeon is for the laptop.
@@ -131,11 +147,19 @@ rootfs:
     # together. ppd also carries a current profile and a change signal, and
     # sysfs carries neither.
     #
-    # No service entry: it ships a D-Bus system service file, so dbus starts it
-    # on the first call, the same way rtkit above works. Artix packages a
-    # -dinit for it and no -runit, and neither is needed. Its four polkit
-    # actions are all allow_active=yes, so nothing prompts.
+    # It gets a service entry, unlike rtkit above. rtkit's activation file
+    # carries a real Exec=/usr/lib/rtkit-daemon, so dbus starts it on the
+    # first call whatever the init is. Both of ppd's carry Exec=/bin/false
+    # and name a systemd unit instead, so on runit the first call fails and
+    # says nothing useful: the display panel read "unavailable" and looked
+    # like a bug in the panel. power-profiles-daemon-runit is in packages-init
+    # below, and the service is named in live-session above.
+    #
+    # Its four polkit actions are all allow_active=yes, so nothing prompts.
     - power-profiles-daemon
+    # powerprofilesctl is python, which is what the panel runs, and this is
+    # what it imports. An optdepend of ppd, so it arrives only if named.
+    - python-gobject
     - grim
     - slurp
     - wl-clipboard
@@ -214,6 +238,7 @@ rootfs:
     runit:
       - networkmanager-runit
       - bluez-runit
+      - power-profiles-daemon-runit
       - artix-live-runit
     dinit: []
     openrc: []

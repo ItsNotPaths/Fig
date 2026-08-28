@@ -224,6 +224,16 @@ mkdir -p "$shell/vendor/pkg"
 for f in $OMARCHY_PKG; do cp "$dir/bin/$f" "$shell/vendor/pkg/$f"; done
 chmod +x "$shell/vendor/pkg"/*
 
+say "omarchy: plymouth chrome"
+# The boot splash's images: a box, a lock, a bullet and a bar. White masks, so
+# they read on fig's background without being recoloured. The theme's own
+# .plymouth and .script sit beside them and are ours.
+ply="$root/packaging/fig-defaults/files/usr/share/plymouth/themes/fig"
+mkdir -p "$ply"
+for f in entry.png lock.png bullet.png progress_box.png progress_bar.png; do
+	cp "$dir/default/plymouth/$f" "$ply/$f"
+done
+
 say "omarchy: hardware layer"
 # Cleared first. The list shrinks as often as it grows, and a file left behind
 # from a longer list is a detector nothing calls and nobody remembers taking.
