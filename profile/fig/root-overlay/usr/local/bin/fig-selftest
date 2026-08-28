@@ -138,10 +138,15 @@ if [ "$(head -1 "$tmp/kipp.out" | cut -f1)" = version ]; then
 else
 	bad "kipp-version-first" "first line is $(head -1 "$tmp/kipp.out" | cut -f1)"
 fi
-if awk -F'\t' '$1=="sync"{print NR; exit}' "$tmp/kipp.out" | grep -q '[3-9]'; then
+# Compared as a NUMBER. This used to grep the line number for [3-9], which
+# reads "not line 1 or 2" only while the dump is under ten lines: hedl grew a
+# title, an app, a win and a bind line, sync landed on line 10, and the check
+# started failing on an image that was correct.
+sync_at=$(awk -F'\t' '$1=="sync"{print NR; exit}' "$tmp/kipp.out")
+if [ -n "$sync_at" ] && [ "$sync_at" -ge 3 ]; then
 	ok "kipp-sync-after-state"
 else
-	bad "kipp-sync-after-state" "sync arrived before the state did"
+	bad "kipp-sync-after-state" "sync on line ${sync_at:-none} of $(wc -l < "$tmp/kipp.out")"
 fi
 
 # A command on the fifo has to move the state on the socket. This is the whole

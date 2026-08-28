@@ -59,6 +59,12 @@ rootfs:
     - polkit
     - xdg-desktop-portal
     - xdg-desktop-portal-wlr
+    # xdg-open, and the mime tools behind it. It was never here, which is why
+    # menu.lua guards its two web entries on `command -v xdg-open` and why
+    # they had never appeared. Slopd wants it too: following a link or opening
+    # a file in "the desktop's app" is xdg-open, and mimeapps.list names slopd
+    # itself as what opens a folder.
+    - xdg-utils
 
     # Every vendor's firmware, about 500 MB installed. Nothing here asked for
     # firmware before, so what arrived came in as somebody's dependency: amdgpu,
