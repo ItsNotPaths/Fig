@@ -2,9 +2,10 @@
 
 A light Artix overlay:
  - lua driven glyph locked DE shell using [wweft]
- - [slopd] is the file browser AND every file dialog on the machine
  - lua composable universal IPC marshaller using [kipp] via [kippsrv]
- - no heavy, opinionated defaults (yazi/micro/btop/foot only - preconfigured)
+ - [slopd] edits, browses, runs terminals, views images, and is every file
+   dialog on the machine. One opinion, 2.7 MB, no toolkit
+ - nothing heavy behind it (yazi/micro/btop/foot only - preconfigured)
  - omarchy vendored system themeing and styled DE shell layout
  - custom WM [hedl], lua configed dwl fork (1.75x) and light, hypr like visuals
  - full firmware/base-devel ready ootb
@@ -51,6 +52,11 @@ The session starts `kippsrv ~/.config/kippsrv/kippsrv.lua`, which reads hedl,
 NetworkManager, PipeWire, backlight, power and the tray, and publishes the lot
 on one socket.
 
+It also answers on that socket, which is newer: it owns the tray's watcher
+name, the notification name, xdg-desktop-portal's file chooser and
+`org.freedesktop.FileManager1`. A file dialog arrives on the bus and leaves as
+a `pick` line like any other fact — see **slopd** below.
+
 `test-wweft` puts everything on that socket on a wweft surface. Mod+d, or the
 command. `q` quits, `c` clears, `r` hides the raw lines.
 
@@ -62,19 +68,47 @@ It is also the answer to whether wweft can read kippsrv without new C:
 `Surface.listen` on a path connects to that socket and hands each line to
 `onMessage`. That was already there for compositor event sockets.
 
-## Files, and file dialogs
+## slopd
 
-[slopd] is on the image. Not installed by slopd's own installer — the package
-puts the binary on PATH and the launcher entry beside it, and nothing under
-`~` is created. `slopd --where` still says it is not installed, which is true:
-Slopd starts owning files in your home when you ask it to, from its Config
-pane or `slopd --install`, and not before.
+The one application the image is opinionated about, and the only graphical
+program on it that is not part of the shell.
 
-Its entry claims `inode/directory`, so opening a folder anywhere lands in the
-file browser. `~/.config/mimeapps.list` makes that the default rather than one
-choice in a list.
+It is a text editor with tree-sitter highlighting, a file browser in list and
+grid, real PTY terminals with sessions, an image viewer, a project search and
+a command line that mixes shell commands with its own. Two panes, no modes.
+That covers most of what a person does at a desktop, and it arrives as one
+static 2.7 MB binary that links no toolkit.
 
-**It is also the save dialog.** kippsrv owns xdg-desktop-portal's FileChooser
+So the "nothing heavy" line above still holds, but it is worth being straight
+about the overlap: slopd edits and micro edits, slopd browses files and yazi
+browses files, slopd runs terminals and foot runs terminals. Both of each are
+on the image, and neither is in the other's way. `EDITOR` is still `micro`,
+because `EDITOR` is a thing that opens in a terminal and slopd opens a window
+unless you ask for `slopd --tui`. Change it if you would rather.
+
+**It is not installed**, and that is deliberate. The package puts the binary
+on PATH and the launcher entry beside it, and creates nothing under `~`.
+`slopd --where` says so:
+
+```
+mode:      read-only
+binary:    /usr/bin/slopd
+```
+
+Slopd runs on the defaults baked into its binary and starts owning files in
+your home the day you ask it to, from its Config pane or `slopd --install`.
+The package installed it; Slopd did not.
+
+### Opening a folder
+
+Its entry claims `inode/directory` and no text type, so opening a folder
+anywhere lands in the file browser and no text file gains an Open With entry
+it did not have. `~/.config/mimeapps.list` makes that the default rather than
+one choice in a list.
+
+### Saving a file
+
+**slopd is also the save dialog.** kippsrv owns xdg-desktop-portal's FileChooser
 backend, so a browser asking to save a file reaches this image's own browser
 rather than a GTK window nothing here has a toolkit for.
 
@@ -92,7 +126,9 @@ not a second dialog.
 
 "Open containing folder" is the opposite shape and comes in on
 `org.freedesktop.FileManager1`: a path handed over, nothing to answer. It
-arrives as a `show` event and opens a window.
+arrives as a `show` event and opens a window. kippsrv owns that name too,
+which it can only do because there is no other file manager here to argue
+over it.
 
 None of it is D-Bus by the time it reaches `fig-files`, so anything that
 speaks kipp can raise a `pick` itself and get the same dialog with no bridge
