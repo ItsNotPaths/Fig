@@ -269,6 +269,50 @@ else
 	basestrap -C "$conf" "$MOUNT" $pkgs || die "basestrap failed"
 fi
 
+# ------------------------------------------------------ the root overlay
+#
+# buildiso copies profile/fig/root-overlay onto the ISO's filesystem after
+# pacman has finished, so none of it belongs to a package, and basestrap
+# installs packages. Without this an installed machine has no
+# ~/.bash_profile to start the session and no ~/.config/hedl/hedl.lua to give
+# it keys: it boots to a bare tty and `hedl` comes up with no desktop at all.
+#
+# Packaging them instead does not work. /etc/skel/.bashrc and .bash_profile
+# belong to `bash`, and a second package claiming them is a file conflict
+# pacman refuses.
+#
+# So they are copied off the running live image, which is the same tree the
+# overlay was applied to. Two are left behind on purpose, both true of a live
+# image and wrong on a machine: the tty1 autologin, and NOPASSWD for wheel.
+#
+# ANYTHING ADDED TO root-overlay MUST BE ADDED HERE or it reaches the ISO and
+# no machine installed from it.
+OVERLAY="
+/etc/skel
+/etc/fonts/conf.d/10-fig.conf
+/usr/local/bin/fig-selftest
+/usr/local/bin/test-wweft
+/usr/local/share/fig
+/usr/share/dbus-1/system-services/org.freedesktop.login1.service
+"
+
+say "the files no package owns"
+for src in $OVERLAY; do
+	[ -e "$src" ] || { say "  missing on the live image: $src"; continue; }
+	if [ "$dry" = 1 ]; then
+		echo "    would: cp -a $src -> $MOUNT$src"
+	elif [ -d "$src" ]; then
+		# The contents, not the directory. /etc/skel already exists on the
+		# target because bash owns it, and copying the directory into it
+		# would leave /etc/skel/skel.
+		mkdir -p "$MOUNT$src"
+		cp -a "$src/." "$MOUNT$src/" || die "cannot copy $src"
+	else
+		mkdir -p "$MOUNT$(dirname "$src")"
+		cp -a "$src" "$MOUNT$src" || die "cannot copy $src"
+	fi
+done
+
 say "fstab"
 if [ "$dry" = 1 ]; then
 	echo "    would: fstabgen -U $MOUNT >> $MOUNT/etc/fstab"
