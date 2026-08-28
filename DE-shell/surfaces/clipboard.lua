@@ -63,9 +63,20 @@ function mpv:start()
 		:format(Text.quote(RUN .. "/fig"), Text.quote(SOCK), ME))
 end
 
+-- Wait for the socket before writing to it.
+--
+-- start() and send() are both Surface.spawn, which does not block, so the
+-- first loadfile used to go out while mpv was still coming up: socat found no
+-- socket, failed into /dev/null, and the first image a person picked never
+-- appeared. A fixed sleep would paper over it here and lose again on a slower
+-- machine. This returns the moment the socket is there and gives up after two
+-- seconds, which is long enough that mpv failing to start is the only way to
+-- reach the end of it.
 function mpv:send(json)
-	Surface.spawn(("printf %s | socat -t1 - UNIX-CONNECT:%s >/dev/null 2>&1")
-	              :format(Text.quote(json .. "\n"), Text.quote(SOCK)))
+	Surface.spawn((
+		"i=0; while [ $i -lt 40 ] && [ ! -S %s ]; do sleep 0.05; i=$((i+1)); done; " ..
+		"printf %s | socat -t1 - UNIX-CONNECT:%s >/dev/null 2>&1")
+		:format(Text.quote(SOCK), Text.quote(json .. "\n"), Text.quote(SOCK)))
 end
 
 function mpv:show(id, path)
