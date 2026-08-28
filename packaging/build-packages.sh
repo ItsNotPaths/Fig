@@ -67,7 +67,15 @@ cp -r "$WWEFT_DIR/examples" "$stage/wweft/usr/share/wweft/examples"
 
 # hedl-wm stages source, not a binary. Without .git, so the copy is small and
 # the same tree twice is the same bytes twice.
-tar -c -C "$HEDL_DIR" --exclude=.git . | tar -x -C "$stage/hedl-wm"
+#
+# src/config.h goes too, and that one matters: the Makefile copies it out of
+# config.def.h on first build and nothing tracks it, so staging somebody's
+# local copy ships a hedl built from settings no file in git holds. It had
+# been doing exactly that, and only stayed harmless because the two agreed on
+# every value. The object files, the binary and wayland-scanner's output are
+# the same hazard one step down.
+tar -c -C "$HEDL_DIR" --exclude=.git --exclude=./src/config.h --exclude='*.o' \
+	--exclude=./hedl --exclude=./wayland-gen . | tar -x -C "$stage/hedl-wm"
 
 # wlay stages source too, and it is not ours: download-deps.sh fetched it at a
 # pinned commit with its submodules. .git goes, the submodule trees stay.
