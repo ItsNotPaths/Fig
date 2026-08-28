@@ -24,6 +24,7 @@
 #   FIG_USER_PASS_FILE=/run/y    that user's password, its own file
 #   FIG_ROOT_PASS_FILE=/run/z    root's password. Unset locks root instead
 #   FIG_CONSOLE=ttyS0,115200     a serial console. Unset on anything with a screen
+#   FIG_AUTOLOGIN=0              do not log the user in on tty1. Default: do
 #
 # Passphrases are never in the answer file. It is written to disk to be read
 # back and logged; the passphrase is read once from a file under /run.
@@ -332,6 +333,7 @@ luks_uuid=$(blkid -s UUID -o value "$root" 2>/dev/null)
 : "${FIG_LOCALE:=en_US.UTF-8}"
 : "${FIG_KEYMAP:=us}"
 : "${FIG_USER:=fig}"
+autologin=${FIG_AUTOLOGIN:-1}
 
 # A machine with no screen. FIG_CONSOLE=ttyS0,115200 puts the kernel and the
 # initramfs passphrase prompt on a serial port, which is the only way to
@@ -347,6 +349,7 @@ if [ "$dry" = 1 ]; then
 	echo "    would: mkinitcpio with the encrypt hook, then grub with"
 	echo "           cryptdevice=UUID=<$root>:cryptroot rootflags=subvol=@"
 	echo "    would: create $FIG_USER, enable NetworkManager bluetoothd acpid agetty-ttyS0"
+	[ "$autologin" = 1 ] && echo "    would: log $FIG_USER in on tty1 through fig-tty1"
 	say "dry run complete"
 	exit 0
 fi
@@ -424,6 +427,29 @@ mkdir -p /etc/runit/runsvdir/default
 for s in NetworkManager bluetoothd acpid agetty-ttyS0; do
 	[ -d "/etc/runit/sv/\$s" ] && ln -sfn "/etc/runit/sv/\$s" "/etc/runit/runsvdir/default/\$s"
 done
+
+# tty1, already logged in.
+#
+# The disk passphrase and the login password are the same secret here, so
+# whoever unlocked the disk has already proved they know it. Asking again buys
+# nothing; the lock screen is what stands between a running session and
+# somebody walking up to it.
+#
+# fig-tty1 in place of agetty-tty1, so the autologin lives in a directory that
+# belongs to fig. runit's own conf is a package file outside its backup array,
+# and the next upgrade of runit would take the setting with it.
+if [ "$autologin" = 1 ] && [ -d /etc/runit/sv/fig-tty1 ]; then
+	cat > /etc/runit/sv/fig-tty1/conf <<-CONF
+		if [ -x /sbin/agetty ] || [ -x /bin/agetty ]; then
+			GETTY_ARGS="--noclear --autologin $FIG_USER"
+		fi
+
+		BAUD_RATE=38400
+		TERM_NAME=linux
+	CONF
+	rm -f /etc/runit/runsvdir/default/agetty-tty1
+	ln -sfn /etc/runit/sv/fig-tty1 /etc/runit/runsvdir/default/fig-tty1
+fi
 # Live-only, and it would try to re-key pacman on every boot.
 rm -f /etc/runit/runsvdir/default/pacman-init
 EOF

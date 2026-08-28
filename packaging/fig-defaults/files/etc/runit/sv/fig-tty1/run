@@ -1,0 +1,28 @@
+#!/bin/sh
+#
+# tty1, with whoever fig installed already logged in.
+#
+# A service of ours rather than an edit to runit's agetty-tty1. That one's
+# `conf` is a package file and is not in runit's backup array, so the next
+# runit upgrade overwrites it and the autologin quietly stops working. This
+# directory belongs to fig, so nothing else writes to it.
+#
+# The name has to end in -tty1: the line below reads the tty out of it.
+#
+# Everything under here is runit's own script, copied. It is sixteen lines and
+# it has not changed in years, which is cheaper to carry than a file pacman
+# fights us for.
+tty=${PWD##*-}
+
+[ -r conf ] && . ./conf
+
+if [ -x /sbin/getty -o -x /bin/getty ]; then
+	# busybox
+	GETTY=getty
+elif [ -x /sbin/agetty -o -x /bin/agetty ]; then
+	# util-linux
+	GETTY=agetty
+fi
+
+exec setsid ${GETTY} ${GETTY_ARGS} \
+	"${tty}" "${BAUD_RATE}" "${TERM_NAME}"
