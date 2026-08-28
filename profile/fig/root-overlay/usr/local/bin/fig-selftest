@@ -20,6 +20,43 @@ set -u
 
 fails=0
 ok()   { printf 'ok\t%s\n' "$1"; }
+
+# ---------------------------------------------------------------- a clean exit
+#
+# `quit`, not a signal. Tearing the compositor down is its own code path: it
+# removes every listener it added, and one left behind makes wlroots abort
+# rather than return. Two such bugs reached a laptop because everything here
+# had only ever killed hedl, which never runs that path.
+#
+# A function because the script has more than one way out, and the run that
+# skips kippsrv is exactly the run a person does on a half-built image.
+#
+# 134 is an assertion and 139 a segfault. Both are worth naming: "hedl did not
+# come back" is not a useful thing to read at 1am.
+hedlquit() {
+	[ -n "$hedl_pid" ] || return 0
+	printf 'quit\n' > "$dir/cmd" 2>/dev/null
+	i=0
+	while [ "$i" -lt 50 ]; do
+		kill -0 "$hedl_pid" 2>/dev/null || break
+		sleep 0.2
+		i=$((i + 1))
+	done
+	if kill -0 "$hedl_pid" 2>/dev/null; then
+		bad "hedl-quit" "still running 10s after quit"
+	else
+		wait "$hedl_pid" 2>/dev/null
+		rc=$?
+		case "$rc" in
+		0)   ok "hedl-quit" ;;
+		134) bad "hedl-quit" "aborted on an assertion: $(grep -i assert "$tmp/hedl.log" | tail -1)" ;;
+		139) bad "hedl-quit" "segfaulted while tearing down" ;;
+		*)   bad "hedl-quit" "exited $rc" ;;
+		esac
+	fi
+	hedl_pid=""
+}
+
 bad()  { printf 'not ok\t%s\t%s\n' "$1" "$2"; fails=$((fails + 1)); }
 skip() { printf 'skip\t%s\t%s\n' "$1" "$2"; }
 
@@ -136,6 +173,7 @@ fi
 
 if ! command -v kippsrv >/dev/null 2>&1; then
 	skip "kippsrv-hedl" "kippsrv not installed"
+	hedlquit
 	exit "$fails"
 fi
 
@@ -185,4 +223,5 @@ for kind in tags focus layout; do
 	fi
 done
 
+hedlquit
 exit "$fails"
