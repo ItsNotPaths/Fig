@@ -19,7 +19,8 @@
 #   FIG_HOSTNAME=fig             defaults: fig, UTC, en_US.UTF-8, us, fig
 #   FIG_TIMEZONE=Europe/Berlin
 #   FIG_LOCALE=en_US.UTF-8
-#   FIG_KEYMAP=us
+#   FIG_KEYMAP=us               the console keymap
+#   FIG_XKBLAYOUT=us            the Wayland layout, if it differs from KEYMAP
 #   FIG_USER=paths
 #   FIG_USER_PASS_FILE=/run/y    that user's password, its own file
 #   FIG_ROOT_PASS_FILE=/run/z    root's password. Unset locks root instead
@@ -332,6 +333,8 @@ luks_uuid=$(blkid -s UUID -o value "$root" 2>/dev/null)
 : "${FIG_TIMEZONE:=UTC}"
 : "${FIG_LOCALE:=en_US.UTF-8}"
 : "${FIG_KEYMAP:=us}"
+# The xkb layout, when it is not spelled the same as the console keymap.
+: "${FIG_XKBLAYOUT:=$FIG_KEYMAP}"
 : "${FIG_USER:=fig}"
 autologin=${FIG_AUTOLOGIN:-1}
 
@@ -385,7 +388,14 @@ hwclock --systohc || true
 sed -i 's/^#\\($FIG_LOCALE\\)/\\1/' /etc/locale.gen
 locale-gen
 echo "LANG=$FIG_LOCALE" > /etc/locale.conf
-echo "KEYMAP=$FIG_KEYMAP" > /etc/vconsole.conf
+# KEYMAP is the console's, XKBLAYOUT is Wayland's, and they are two different
+# name spaces that happen to agree on the common ones. Both are written because
+# nothing else on the machine sets XKBLAYOUT: Artix has no localectl, and
+# without it a German install types a US layout in the compositor. It is also
+# where plymouth's hook looks when deciding whether the layout can type a
+# passphrase at all.
+printf 'KEYMAP=%s\nXKBLAYOUT=%s\n' "$FIG_KEYMAP" "${FIG_XKBLAYOUT:-$FIG_KEYMAP}" \
+	> /etc/vconsole.conf
 
 # The splash, before mkinitcpio: plymouth's install hook bundles whichever
 # theme is the default at the moment it runs, so setting it afterwards would

@@ -7,6 +7,20 @@
 local mod  = "SUPER"
 local term = "foot"
 
+-- One value out of /etc/vconsole.conf, which is where fig-install wrote what
+-- the keyboard is. A machine that has none falls back to US below.
+local function vconsole(key)
+	local f = io.open("/etc/vconsole.conf")
+	if not f then return nil end
+	local want
+	for line in f:lines() do
+		local k, v = line:match("^%s*([%w_]+)%s*=%s*(.-)%s*$")
+		if k == key then want = v:gsub('^"(.*)"$', "%1"):gsub("^'(.*)'$", "%1") end
+	end
+	f:close()
+	return want ~= "" and want or nil
+end
+
 -- colors.lua is a link into the current theme, written when one is applied.
 -- A theme change sends RELOAD through kippsrv, hedl runs this file again, and
 -- the borders follow. Before the first theme there is no link, so the table
@@ -45,9 +59,30 @@ hedl.config({
 
   animation = { enabled = true, divisor = 6, snap = 2 },
 
+  -- omarchy's numbers, from its `default/hypr/input.lua`. hedl's own defaults
+  -- say the same thing now, so nothing here is fighting the source; it is
+  -- written out because this is the file a person opens to change it.
   input = {
     follow_mouse = true,
-    touchpad = { tap = true, natural_scroll = true },
+    repeat_rate = 40,
+    repeat_delay = 250,
+    -- What the installer was told, so a machine set up with a German keyboard
+    -- types German here too. Nothing else sets it: xkb_rules is the only thing
+    -- that decides a Wayland layout, and Artix has no localectl to write one.
+    kb_layout = vconsole("XKBLAYOUT") or "us",
+    kb_variant = vconsole("XKBVARIANT") or "",
+    touchpad = {
+      tap = true,
+      -- Off is the direction a wheel scrolls, not the direction a phone
+      -- does. On means the touchpad goes the opposite way to the mouse
+      -- beside it: GNOME's and macOS's arrangement, and nobody else's.
+      -- hyprland, sway, dwl, KDE and omarchy all ship it off. It was on
+      -- here, and it read as a bug in the touchpad.
+      natural_scroll = false,
+      -- Two fingers anywhere is a right click, rather than one finger in the
+      -- bottom-right corner. omarchy's clickfinger_behavior.
+      click_method = "clickfinger",
+    },
   },
 })
 
