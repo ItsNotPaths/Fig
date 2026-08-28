@@ -81,10 +81,10 @@ MISE_VERSION=v2026.8.12
 # chooser and fig-files runs slopd to answer it. Ours, and it publishes one
 # static binary per release, so there is nothing to compile.
 #
-# THE PIN NEEDS >= 1.9. `--pick` and the inode/directory association landed
-# after 1.8, and without them the dialog opens a window that cannot answer.
-# Set it back to 1.8 to ship the editor alone.
-SLOPD_VERSION=1.9
+# THE PIN NEEDS >= 2.0. `--pick` and the inode/directory association landed
+# in it, and without them the dialog opens a window that cannot answer. Set it
+# back to 1.8 to ship the editor alone, without the file dialog.
+SLOPD_VERSION=2.0
 
 # wlay. Monitor arrangement with the outputs drawn as rectangles, and the only
 # graphical one that is not GTK: GLFW and nuklear, straight onto
