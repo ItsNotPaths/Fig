@@ -1,0 +1,7 @@
+#!/bin/sh
+# Open the installer panel.
+#
+# Named fig-installer and not `install`, which is coreutils' and would be
+# shadowed on every machine this image installs. The menu row runs the same
+# thing; this is for a terminal.
+exec wweft "${HOME}/.config/figshell/install.lua" "$@"

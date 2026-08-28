@@ -39,6 +39,11 @@ return {
 	{id = "setup",   icon = "",  label = "Setup"},
 	{id = "pkg",     icon = "󰏖", label = "Packages"},
 	{id = "system",  icon = "",  label = "System"},
+	-- Only on the live image. `when` is a shell condition, and the ISO stays
+	-- mounted at that path for as long as the session runs off it, so the row
+	-- is absent on the machine this installs.
+	{id = "install", icon = "󰍊", label = "Install fig",
+	 action = shell .. "install.lua", when = "test -d /run/artix/bootmnt"},
 
 	-- Learn
 	{id = "learn.keys", icon = "", label = "Keybindings", action = shell .. "keys.lua"},
