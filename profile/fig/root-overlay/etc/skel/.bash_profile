@@ -12,7 +12,14 @@ export MICRO_TRUECOLOR=1
 # name and nothing else: xdg-desktop-portal-wlr's .portal file lists `wlroots`
 # in its UseIn, so unset means the portal chooses no backend and a screencast
 # request is answered by nobody.
-export XDG_CURRENT_DESKTOP=wlroots
+#
+# A colon list, most specific first, which is what the spec says and what
+# Hyprland and sway do. The portal splits it and matches any entry, so
+# `wlroots` still finds the backend; `hedl` is there because anything asking
+# what is running gets the compositor's own name. Without it fastfetch and
+# friends answer "wlroots", since the variable shadows the process they would
+# otherwise find.
+export XDG_CURRENT_DESKTOP=hedl:wlroots
 export XDG_SESSION_TYPE=wayland
 
 # tty1 is the session. Anything else is a plain shell.

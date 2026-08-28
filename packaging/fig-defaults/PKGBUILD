@@ -13,4 +13,39 @@ options=('!strip' '!debug')
 
 package() {
 	cp -a "${STAGE:?STAGE is not set}"/. "$pkgdir"/
+
+	# What the machine calls itself.
+	#
+	# fig-artix, not fig: this is Artix with a desktop on it, and the name
+	# should not read as though it were a distribution of its own.
+	#
+	# ID stays `artix` for the same reason, and because it is the machine
+	# readable one: anything that branches on the distribution is asking
+	# what the packages and the init are, and the answer to that is Artix.
+	# VARIANT and VARIANT_ID are the fields the os-release spec provides for
+	# exactly this, so a script that does want to know it is fig can ask.
+	#
+	# No package owns /etc/os-release on Artix; it is generated, and differs
+	# from filesystem's /usr/lib/os-release by a VERSION_ID line. So this
+	# can be shipped as a real file, which is also how it reaches a machine
+	# installed from the image: basestrap installs packages.
+	#
+	# The URLs are ours. A person running fig who hits a bug should not be
+	# pointed at Artix's tracker for something Artix did not write.
+	install -d "$pkgdir/etc"
+	cat > "$pkgdir/etc/os-release" <<-EOF
+		NAME="fig-artix"
+		PRETTY_NAME="fig-artix"
+		ID=artix
+		ID_LIKE=arch
+		VARIANT="fig"
+		VARIANT_ID=fig
+		BUILD_ID=rolling
+		VERSION_ID=$pkgver
+		ANSI_COLOR="38;2;125;174;163"
+		HOME_URL="$url"
+		DOCUMENTATION_URL="$url"
+		BUG_REPORT_URL="$url/issues"
+		LOGO=artixlinux-logo
+	EOF
 }
